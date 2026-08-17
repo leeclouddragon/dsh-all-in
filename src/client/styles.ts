@@ -17,9 +17,17 @@ export const STYLES = String.raw`
 .ai-overlay {
   --ai-blue: var(--dsw-alias-state-business-primary);
   --ai-blue-soft: var(--dsw-alias-state-business-tertiary);
+  --ai-felt-highlight: rgba(255,255,255,.72);
+  --ai-felt-shade: rgba(60,77,112,.1);
+  --ai-felt-grain: rgba(67,83,117,.24);
   position: absolute; inset-block: 0; left: 280px; right: 0; z-index: 1; pointer-events: auto; overflow: hidden;
   color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family);
   background: var(--dsw-alias-bg-base);
+}
+body[data-ds-dark-theme] .ai-overlay {
+  --ai-felt-highlight: rgba(255,255,255,.045);
+  --ai-felt-shade: rgba(0,0,0,.26);
+  --ai-felt-grain: rgba(255,255,255,.13);
 }
 .ai-grain { display: none; }
 .ai-shell { position: relative; height: 100%; display: grid; grid-template-rows: 50px minmax(0, 1fr) 84px; }
@@ -67,17 +75,42 @@ export const STYLES = String.raw`
 }
 .ai-table {
   position: absolute; inset: auto 7%; top: 50%; height: min(60cqh, 40cqw);
-  transform: translateY(-50%); border-radius: 999px;
-  background: var(--dsw-static-neutral-bluish-50);
+  transform: translateY(-50%); overflow: hidden; border-radius: 999px;
+  background:
+    radial-gradient(ellipse at 50% 38%, var(--ai-felt-highlight), transparent 58%),
+    var(--dsw-static-neutral-bluish-50);
   border: 1px solid var(--dsw-alias-border-l1);
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.54),
+    inset 0 -24px 48px var(--ai-felt-shade),
+    0 9px 24px rgba(38,49,72,.07);
 }
 body[data-ds-dark-theme] .ai-table {
-  background: var(--dsw-static-neutral-bluish-900);
-  box-shadow: none;
+  background:
+    radial-gradient(ellipse at 50% 38%, var(--ai-felt-highlight), transparent 58%),
+    var(--dsw-static-neutral-bluish-900);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.045),
+    inset 0 -24px 48px var(--ai-felt-shade),
+    0 10px 28px rgba(0,0,0,.18);
 }
-.ai-table::before { display: none; }
-.ai-table-logo { display: none; }
+.ai-table::before {
+  content: ''; position: absolute; z-index: 1; inset: 10px; display: block;
+  border: 1px solid var(--dsw-alias-border-l1); border-radius: inherit;
+  box-shadow: inset 0 0 30px var(--ai-felt-shade); pointer-events: none;
+}
+.ai-table::after {
+  content: ''; position: absolute; inset: 11px; border-radius: inherit; pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, var(--ai-felt-grain) 0 .6px, transparent .75px);
+  background-size: 5px 5px; opacity: .28;
+}
+.ai-table-logo {
+  position: absolute; z-index: 2; left: 50%; top: 72%; transform: translate(-50%,-50%);
+  display: flex; align-items: center; gap: 7px; color: var(--dsw-alias-label-caption);
+  opacity: .2; white-space: nowrap; letter-spacing: .14em;
+  font: 600 8px/1 var(--dsw-font-family); pointer-events: none;
+}
+.ai-table-logo svg { width: 18px; height: 18px; }
 .ai-pot {
   position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%);
   display: flex; align-items: baseline; gap: 5px; padding: 4px 9px; text-align: center;

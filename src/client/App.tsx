@@ -220,7 +220,9 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
 
         <main className="ai-stage">
           <div className="ai-table-wrap">
-            <div className="ai-table"><div className="ai-table-logo">DEEPSEEK HARNESS · TABLE 01</div></div>
+            <div className="ai-table">
+              <div className="ai-table-logo"><FishLogo size={18} /><span>ALL IN · TABLE 01</span></div>
+            </div>
             <div className="ai-pot"><div className="ai-pot-label">{props.t('pot')}</div><div className="ai-pot-value">{potOf(game).toLocaleString()}</div></div>
             <div className="ai-board">
               {[0, 1, 2, 3, 4].map(index => <PlayingCard key={index} card={game.board[index]} empty={game.board[index] === undefined} />)}
