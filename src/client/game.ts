@@ -256,7 +256,14 @@ function resolveAfterAction(state: GameState, actor: number, fullRaise: boolean,
     pending = [...new Set([...remaining, ...owesNewBet])]
   }
 
-  if (pending.length === 0) return withPot(finishStreet({ ...state, pendingActors: [], actingSeat: null, actedSinceFullRaise: acted }))
+  if (pending.length === 0) {
+    return withPot(addLog({
+      ...state,
+      pendingActors: [],
+      actingSeat: null,
+      actedSinceFullRaise: acted,
+    }, `${state.street === 'preflop' ? 'Pre-flop' : state.street[0]?.toUpperCase()}${state.street === 'preflop' ? '' : state.street.slice(1)} betting complete`))
+  }
   const actingSeat = nextPendingIndex(state, actor, pending)
   if (actingSeat === null) throw new Error('pending betting actors have no next seat')
   return withPot({ ...state, pendingActors: pending, actingSeat, actedSinceFullRaise: acted })

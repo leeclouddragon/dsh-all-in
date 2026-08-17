@@ -128,7 +128,7 @@ test('heads-up button posts the small blind and acts first preflop', () => {
 test('betting round closes only after every pending response and starts postflop left of button', () => {
   const random = seeded(12)
   let game = createGame(random)
-  for (let guard = 0; guard < 150 && game.street === 'preflop'; guard += 1) {
+  for (let guard = 0; guard < 150 && game.street === 'preflop' && game.actingSeat !== null; guard += 1) {
     if (game.actingSeat === game.userSeat) {
       const legal = legalActions(game)
       game = act(game, legal.canCheck ? 'check' : 'call')
@@ -136,6 +136,10 @@ test('betting round closes only after every pending response and starts postflop
       game = advanceAutomatic(game, random)
     }
   }
+  assert.equal(game.street, 'preflop')
+  assert.equal(game.actingSeat, null)
+  assert.equal(game.board.length, 0)
+  game = advanceAutomatic(game, random)
   assert.equal(game.street, 'flop')
   assert.equal(game.board.length, 3)
   const expected = game.seats.findIndex((seat, index) => index === 0 && !seat.folded && !seat.allIn)

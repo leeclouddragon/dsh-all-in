@@ -14,6 +14,9 @@ export type SelectorHook<T> = <Selected>(selector: (state: T) => Selected) => Se
 export interface TableSnapshot {
   readonly open: boolean
   readonly game: GameState
+  readonly thinkingSeat: number | null
+  readonly thinkingRemainingMs: number
+  readonly thinkingDurationMs: number
 }
 
 export interface TableStore {

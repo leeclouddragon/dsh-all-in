@@ -19,6 +19,9 @@ export const dictionaries = {
     spectating: 'Watching the table',
     acting: 'is acting',
     dealing: 'Dealer',
+    thinking: 'is thinking',
+    thinkingShort: 'Thinking',
+    dealingNext: 'Dealing next street',
     dealer: 'Dealer',
   },
   zh: {
@@ -41,6 +44,9 @@ export const dictionaries = {
     spectating: '旁观牌局中',
     acting: '行动中',
     dealing: '发牌员',
+    thinking: '思考中',
+    thinkingShort: '思考',
+    dealingNext: '准备发下一街',
     dealer: '庄家',
   },
 } as const
