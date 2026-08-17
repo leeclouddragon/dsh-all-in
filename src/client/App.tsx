@@ -116,7 +116,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
         <header className="ai-topbar">
           <div className="ai-brand">
             <span className="ai-brandmark">AI</span>
-            <span><div className="ai-title">ALL IN // 6-MAX</div><div className="ai-subtitle">{props.t('playChips')}</div></span>
+            <span><div className="ai-title">All In</div><div className="ai-subtitle">No-Limit Hold’em · 6-max · {props.t('playChips')}</div></span>
           </div>
           <div className="ai-status" data-running={String(running)}><span className="ai-status-dot" />{running ? props.t('agentRunning') : props.t('agentIdle')}</div>
           <div className="ai-top-actions">
@@ -127,7 +127,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
 
         <main className="ai-stage">
           <div className="ai-table-wrap">
-            <div className="ai-table"><div className="ai-table-logo">DEEPSEEK RIVER CLUB</div></div>
+            <div className="ai-table"><div className="ai-table-logo">DEEPSEEK HARNESS · TABLE 01</div></div>
             <div className="ai-pot"><div className="ai-pot-label">{props.t('pot')}</div><div className="ai-pot-value">{potOf(game).toLocaleString()}</div></div>
             <div className="ai-board">
               {[0, 1, 2, 3, 4].map(index => <PlayingCard key={index} card={game.board[index]} empty={game.board[index] === undefined} />)}
