@@ -83,6 +83,16 @@ function nextFundedIndex(seats: readonly Seat[], from: number): number {
   return nextIndex(seats, from, seat => seat.stack > 0) ?? from
 }
 
+export function blindSeatIndices(state: GameState): { smallBlindSeat: number; bigBlindSeat: number } {
+  const inHand = (seat: Seat): boolean => seat.stack + seat.committed > 0
+  const fundedCount = state.seats.filter(inHand).length
+  const smallBlindSeat = fundedCount === 2
+    ? state.dealer
+    : nextIndex(state.seats, state.dealer, inHand) ?? state.dealer
+  const bigBlindSeat = nextIndex(state.seats, smallBlindSeat, inHand) ?? smallBlindSeat
+  return { smallBlindSeat, bigBlindSeat }
+}
+
 function nextPendingIndex(state: GameState, from: number, pending: readonly number[]): number | null {
   const allowed = new Set(pending)
   return nextIndex(state.seats, from, (_seat, index) => allowed.has(index))

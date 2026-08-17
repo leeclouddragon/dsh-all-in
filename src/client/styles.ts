@@ -132,10 +132,14 @@ body[data-ds-dark-theme] .ai-table {
   display: block; padding: 0; box-sizing: border-box;
   font: 600 clamp(14px, 1.45vw, 19px)/1 var(--dsw-font-family);
 }
-.ai-card:not(.ai-card-empty) { animation: ai-card-deal 380ms var(--ds-ease-in-out) both; }
-@keyframes ai-card-deal {
-  from { opacity: 0; translate: 0 -8px; scale: .96; }
-  to { opacity: 1; translate: 0 0; scale: 1; }
+.ai-board .ai-card[data-dealing="true"] {
+  animation: ai-board-deal 520ms cubic-bezier(.16,.78,.22,1) both;
+  animation-delay: calc(var(--ai-deal-step, 0) * 110ms);
+}
+@keyframes ai-board-deal {
+  0% { opacity: 0; transform: translate(150px,-34px) rotate(9deg) scale(.78); }
+  76% { opacity: 1; transform: translate(0,-3px) rotate(-1deg) scale(1.04); }
+  100% { opacity: 1; transform: translate(0,0) rotate(0) scale(1); }
 }
 .ai-card[data-red="true"] { color: var(--dsw-static-red-500); }
 .ai-card-rank { position: absolute; left: 7px; top: 7px; letter-spacing: -.04em; }
@@ -152,25 +156,49 @@ body[data-ds-dark-theme] .ai-table {
 
 .ai-seat {
   --ai-chip-x: 0px; --ai-chip-y: -72px; --ai-muck-x: 0px; --ai-muck-y: -170px;
+  --ai-deal-x: 0px; --ai-deal-y: 0px;
   position: absolute; width: 158px; transform: translate(-50%,-50%); text-align: center;
   opacity: 1; transition: opacity .22s, filter .22s;
 }
 .ai-seat[data-folded="true"] { opacity: .42; filter: saturate(.35); }
 .ai-seat[data-effect="fold"] { opacity: 1; filter: none; }
 .ai-seat[data-folded="true"]:not([data-effect="fold"]) .ai-hole { opacity: 0; }
-.ai-seat[data-pos="0"] { left: 50%; top: calc(50% + var(--ai-table-half-height)); --ai-chip-y: -78px; --ai-muck-y: -180px; }
-.ai-seat[data-pos="1"] { left: 8%; top: calc(50% + var(--ai-seat-side-y)); --ai-chip-x: 100px; --ai-chip-y: -42px; --ai-muck-x: 165px; --ai-muck-y: -92px; }
-.ai-seat[data-pos="2"] { left: 8%; top: calc(50% - var(--ai-seat-side-y)); --ai-chip-x: 100px; --ai-chip-y: 42px; --ai-muck-x: 165px; --ai-muck-y: 92px; }
-.ai-seat[data-pos="3"] { left: 50%; top: calc(50% - var(--ai-table-half-height)); --ai-chip-y: 72px; --ai-muck-y: 180px; }
-.ai-seat[data-pos="4"] { left: 92%; top: calc(50% - var(--ai-seat-side-y)); --ai-chip-x: -100px; --ai-chip-y: 42px; --ai-muck-x: -165px; --ai-muck-y: 92px; }
-.ai-seat[data-pos="5"] { left: 92%; top: calc(50% + var(--ai-seat-side-y)); --ai-chip-x: -100px; --ai-chip-y: -42px; --ai-muck-x: -165px; --ai-muck-y: -92px; }
+.ai-seat[data-pos="0"] { left: 50%; top: calc(50% + var(--ai-table-half-height)); --ai-chip-y: -78px; --ai-muck-y: -180px; --ai-deal-x: 20cqw; --ai-deal-y: calc(64px - var(--ai-table-half-height)); }
+.ai-seat[data-pos="1"] { left: 8%; top: calc(50% + var(--ai-seat-side-y)); --ai-chip-x: 100px; --ai-chip-y: -42px; --ai-muck-x: 165px; --ai-muck-y: -92px; --ai-deal-x: 62cqw; --ai-deal-y: calc(64px - var(--ai-seat-side-y)); }
+.ai-seat[data-pos="2"] { left: 8%; top: calc(50% - var(--ai-seat-side-y)); --ai-chip-x: 100px; --ai-chip-y: 42px; --ai-muck-x: 165px; --ai-muck-y: 92px; --ai-deal-x: 62cqw; --ai-deal-y: calc(64px + var(--ai-seat-side-y)); }
+.ai-seat[data-pos="3"] { left: 50%; top: calc(50% - var(--ai-table-half-height)); --ai-chip-y: 72px; --ai-muck-y: 180px; --ai-deal-x: 20cqw; --ai-deal-y: calc(64px + var(--ai-table-half-height)); }
+.ai-seat[data-pos="4"] { left: 92%; top: calc(50% - var(--ai-seat-side-y)); --ai-chip-x: -100px; --ai-chip-y: 42px; --ai-muck-x: -165px; --ai-muck-y: 92px; --ai-deal-x: -22cqw; --ai-deal-y: calc(64px + var(--ai-seat-side-y)); }
+.ai-seat[data-pos="5"] { left: 92%; top: calc(50% + var(--ai-seat-side-y)); --ai-chip-x: -100px; --ai-chip-y: -42px; --ai-muck-x: -165px; --ai-muck-y: -92px; --ai-deal-x: -22cqw; --ai-deal-y: calc(64px - var(--ai-seat-side-y)); }
 .ai-hole { position: relative; z-index: 3; height: 48px; display: flex; justify-content: center; align-items: flex-end; gap: 3px; margin-bottom: -4px; transition: opacity .18s; }
-.ai-hole .ai-card { width: 34px; border-radius: 5px; font-size: 11px; }
+.ai-hole .ai-card { width: 34px; border-radius: 5px; font-size: 11px; animation: none; }
 .ai-hole .ai-card-rank { left: 5px; top: 5px; }
 .ai-hole .ai-card-suit { left: 5px; bottom: 4px; }
 .ai-hole .ai-card-mark { max-width: 50%; }
-.ai-hole .ai-card:first-child { transform: rotate(-4deg) translateX(2px); }
-.ai-hole .ai-card:last-child { transform: rotate(4deg) translateX(-2px); }
+.ai-hole .ai-card:first-child { --ai-card-angle: -4deg; --ai-card-nudge: 2px; transform: rotate(var(--ai-card-angle)) translateX(var(--ai-card-nudge)); }
+.ai-hole .ai-card:last-child { --ai-card-angle: 4deg; --ai-card-nudge: -2px; transform: rotate(var(--ai-card-angle)) translateX(var(--ai-card-nudge)); }
+.ai-table-wrap[data-dealing="true"] .ai-hole .ai-card {
+  animation: ai-hole-deal 560ms cubic-bezier(.16,.78,.22,1) both;
+  animation-delay: calc(var(--ai-deal-step, 0) * 105ms);
+}
+@keyframes ai-hole-deal {
+  0% { opacity: 0; transform: translate(var(--ai-deal-x),var(--ai-deal-y)) rotate(-10deg) scale(.72); }
+  18% { opacity: 1; }
+  78% { opacity: 1; transform: translate(0,-3px) rotate(var(--ai-card-angle)) scale(1.04); }
+  100% { opacity: 1; transform: rotate(var(--ai-card-angle)) translateX(var(--ai-card-nudge)) scale(1); }
+}
+.ai-deck {
+  position: absolute; z-index: 7; left: 70%; top: 50%; width: 38px; height: 54px;
+  transform: translate(-50%,-50%); pointer-events: none; animation: ai-deck-fade 1.85s ease both;
+}
+.ai-deck > span {
+  position: absolute; inset: 0; display: grid; place-items: center; border-radius: 6px;
+  border: 1px solid rgba(15,17,21,.12); background: var(--dsw-static-neutral-00); color: var(--dsw-static-neutral-bluish-1000);
+  box-shadow: 0 5px 15px rgba(15,17,21,.16);
+}
+.ai-deck > span:first-child { transform: translate(-4px,3px) rotate(-5deg); }
+.ai-deck > span:last-child { transform: translate(2px,-1px) rotate(3deg); }
+@keyframes ai-deck-fade { 0%, 76% { opacity: 1; } 100% { opacity: 0; } }
+.ai-deck[data-mode="board"] { animation-duration: 950ms; }
 .ai-seat[data-effect="fold"] .ai-hole .ai-card:first-child { animation: ai-fold-card-left 760ms cubic-bezier(.2,.72,.22,1) forwards; }
 .ai-seat[data-effect="fold"] .ai-hole .ai-card:last-child { animation: ai-fold-card-right 760ms cubic-bezier(.2,.72,.22,1) 35ms forwards; }
 @keyframes ai-fold-card-left {
@@ -217,7 +245,11 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 .ai-player-meta { min-width: 0; }
 .ai-player-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 14px; font-weight: 600; }
 .ai-stack { display: block; color: var(--dsw-alias-label-tertiary); margin-top: 2px; font: 9px/1.2 var(--ds-font-family-code); }
-.ai-badge { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font: 700 9px/1 var(--dsw-font-family); }
+.ai-badges { display: flex; align-items: center; gap: 2px; }
+.ai-badge { min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; display: grid; place-items: center; border-radius: 9px; background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font: 700 8px/1 var(--dsw-font-family); }
+.ai-badge[data-role="D"] { width: 18px; padding: 0; border-radius: 50%; }
+.ai-badge[data-role="SB"] { border: 1px solid var(--ai-blue); color: var(--dsw-alias-label-primary-bluish); background: var(--ai-blue-soft); }
+.ai-badge[data-role="BB"] { background: var(--ai-blue); color: var(--dsw-alias-label-primary-foreground); }
 .ai-result {
   position: absolute; left: 50%; top: calc(100% + 5px); transform: translateX(-50%);
   width: max-content; max-width: 170px; padding: 4px 8px; border-radius: 10px;
@@ -343,7 +375,7 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-status-dot, .ai-seat, .ai-seat[data-acting="true"] .ai-player, .ai-card, .ai-bet { animation: none; transition: none; }
+  .ai-status-dot, .ai-seat, .ai-seat[data-acting="true"] .ai-player, .ai-card, .ai-bet, .ai-deck { animation: none; transition: none; }
   .ai-chip-flight { display: none; }
   .ai-seat[data-effect="fold"] .ai-hole { opacity: 0; }
 }

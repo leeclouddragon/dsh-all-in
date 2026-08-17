@@ -1,6 +1,6 @@
 import React from 'react'
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
-import { legalActions, potOf, type PlayerAction, type Seat, type Street } from './game.ts'
+import { blindSeatIndices, legalActions, potOf, type PlayerAction, type Seat, type Street } from './game.ts'
 import { cardText, isRed, type Card } from './poker.ts'
 import type { StandardProps, TableFace } from './services.ts'
 
@@ -44,26 +44,32 @@ export function SidebarEntry(props: EntryProps): React.ReactElement {
   )
 }
 
-function PlayingCard({ card, hidden = false, empty = false }: { card?: Card | undefined; hidden?: boolean; empty?: boolean }): React.ReactElement {
+type DealStyle = React.CSSProperties & { '--ai-deal-step'?: number }
+type PositionBadge = 'D' | 'SB' | 'BB'
+
+function PlayingCard({ card, hidden = false, empty = false, dealStep }: { card?: Card | undefined; hidden?: boolean; empty?: boolean; dealStep?: number | undefined }): React.ReactElement {
+  const style: DealStyle | undefined = dealStep === undefined ? undefined : { '--ai-deal-step': dealStep }
   if (empty) return <span className="ai-card ai-card-empty"><FishLogo className="ai-card-mark" size={22} /></span>
-  if (hidden || card === undefined) return <span className="ai-card ai-card-back"><FishLogo className="ai-card-mark" size={24} /></span>
+  if (hidden || card === undefined) return <span className="ai-card ai-card-back" data-dealing={dealStep === undefined ? undefined : 'true'} style={style}><FishLogo className="ai-card-mark" size={24} /></span>
   const text = cardText(card)
   return (
-    <span className="ai-card" data-red={String(isRed(card))}>
+    <span className="ai-card" data-red={String(isRed(card))} data-dealing={dealStep === undefined ? undefined : 'true'} style={style}>
       <span className="ai-card-rank">{text.slice(0, -1)}</span><span className="ai-card-suit">{text.slice(-1)}</span>
     </span>
   )
 }
 
-function SeatView({ seat, position, dealer, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, effect }: {
+function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, dealOrder, dealSeatCount, effect }: {
   seat: Seat
   position: number
-  dealer: boolean
+  badges: readonly PositionBadge[]
   reveal: boolean
   acting: boolean
   thinkingMs: number
   thinkingDurationMs: number
   thinkingLabel: string
+  dealOrder: number
+  dealSeatCount: number
   effect?: SeatEffect | undefined
 }): React.ReactElement {
   const initials = seat.name === 'You' ? 'YOU' : seat.name.slice(0, 2).toUpperCase()
@@ -72,7 +78,7 @@ function SeatView({ seat, position, dealer, reveal, acting, thinkingMs, thinking
     <div className="ai-seat" data-pos={position} data-folded={String(seat.folded)} data-hero={String(!seat.bot)} data-acting={String(acting)} data-effect={effect?.kind}>
       <div className="ai-hole">
         {seat.hole.length === 0 ? null : seat.hole.map((card, index) => (
-          <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={seat.bot && !reveal} />
+          <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={seat.bot && !reveal} dealStep={dealOrder + index * dealSeatCount} />
         ))}
       </div>
       {effect?.kind === 'chips' ? (
@@ -90,7 +96,9 @@ function SeatView({ seat, position, dealer, reveal, acting, thinkingMs, thinking
           <span className="ai-player-name">{seat.name}</span>
           <span className="ai-stack">{seat.stack.toLocaleString()} chips</span>
         </span>
-        {dealer ? <span className="ai-badge">D</span> : <span />}
+        {badges.length > 0 ? (
+          <span className="ai-badges">{badges.map(badge => <span key={badge} className="ai-badge" data-role={badge}>{badge}</span>)}</span>
+        ) : <span />}
       </div>
       {thinkingMs > 0 ? (
         <div className="ai-thinking-chip">
@@ -122,11 +130,42 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const snapshot = props.useAllIn(state => state)
   const running = currentRunning(props)
   const { game } = snapshot
+  const holeDealKey = `${game.handNumber}:${game.seats.flatMap(seat => seat.hole.map(card => `${card.rank}-${card.suit}`)).join('|')}`
   const legal = legalActions(game)
   const overlayRef = React.useRef<HTMLElement | null>(null)
   const previousGameRef = React.useRef(game)
+  const previousBoardCountRef = React.useRef(game.board.length)
   const effectIdRef = React.useRef(0)
+  const dealtHandRef = React.useRef<string | undefined>()
   const [seatEffect, setSeatEffect] = React.useState<SeatEffect | undefined>()
+  const [dealing, setDealing] = React.useState(false)
+  const [boardDealing, setBoardDealing] = React.useState(false)
+  const [boardDealFrom, setBoardDealFrom] = React.useState(game.board.length)
+
+  React.useLayoutEffect(() => {
+    if (!snapshot.open) {
+      setDealing(false)
+      return undefined
+    }
+    if (dealtHandRef.current === holeDealKey) return undefined
+    dealtHandRef.current = holeDealKey
+    setDealing(true)
+    const timer = window.setTimeout(() => { setDealing(false) }, 1_850)
+    return () => { window.clearTimeout(timer) }
+  }, [snapshot.open, holeDealKey])
+
+  React.useLayoutEffect(() => {
+    const previousCount = previousBoardCountRef.current
+    previousBoardCountRef.current = game.board.length
+    if (!snapshot.open || game.board.length <= previousCount) {
+      setBoardDealing(false)
+      return undefined
+    }
+    setBoardDealFrom(previousCount)
+    setBoardDealing(true)
+    const timer = window.setTimeout(() => { setBoardDealing(false) }, game.board.length - previousCount === 3 ? 950 : 680)
+    return () => { window.clearTimeout(timer) }
+  }, [snapshot.open, game.board.length])
 
   React.useLayoutEffect(() => {
     const previous = previousGameRef.current
@@ -201,6 +240,17 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
     : `${actor.name} ${props.t('thinking')} · ${thinkingSeconds}s`
   const latest = game.logs.at(-1) ?? ''
   const previous = game.logs.at(-2) ?? ''
+  const { smallBlindSeat, bigBlindSeat } = blindSeatIndices(game)
+  const dealSeats = game.seats
+    .flatMap((seat, index) => seat.hole.length > 0 ? [index] : [])
+    .sort((first, second) => {
+      const offset = (index: number): number => {
+        const value = (index - game.dealer + game.seats.length) % game.seats.length
+        return value === 0 ? game.seats.length : value
+      }
+      return offset(first) - offset(second)
+    })
+  const dealOrder = new Map(dealSeats.map((seat, index) => [seat, index]))
 
   return (
     <section ref={overlayRef} className="ai-overlay" role="region" aria-label={props.t('entry')}>
@@ -219,24 +269,36 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
         </header>
 
         <main className="ai-stage">
-          <div className="ai-table-wrap">
+          <div className="ai-table-wrap" data-dealing={String(dealing)}>
             <div className="ai-table">
               <div className="ai-table-logo"><FishLogo size={18} /><span>ALL IN · TABLE 01</span></div>
             </div>
+            {dealing || boardDealing ? <div className="ai-deck" data-mode={dealing ? 'hole' : 'board'} aria-hidden><span><FishLogo size={18} /></span><span><FishLogo size={18} /></span></div> : null}
             <div className="ai-pot"><div className="ai-pot-label">{props.t('pot')}</div><div className="ai-pot-value">{potOf(game).toLocaleString()}</div></div>
             <div className="ai-board">
-              {[0, 1, 2, 3, 4].map(index => <PlayingCard key={index} card={game.board[index]} empty={game.board[index] === undefined} />)}
+              {[0, 1, 2, 3, 4].map(index => <PlayingCard
+                key={index}
+                card={game.board[index]}
+                empty={game.board[index] === undefined}
+                dealStep={boardDealing && index >= boardDealFrom && game.board[index] !== undefined ? index - boardDealFrom : undefined}
+              />)}
             </div>
             {game.seats.map((seat, index) => <SeatView
               key={seat.id}
               seat={seat}
               position={index}
-              dealer={game.dealer === index}
+              badges={[
+                ...(game.dealer === index ? ['D' as const] : []),
+                ...(smallBlindSeat === index ? ['SB' as const] : []),
+                ...(bigBlindSeat === index ? ['BB' as const] : []),
+              ]}
               reveal={finished && !seat.folded}
               acting={game.actingSeat === index}
               thinkingMs={snapshot.thinkingSeat === index ? snapshot.thinkingRemainingMs : 0}
               thinkingDurationMs={snapshot.thinkingSeat === index ? snapshot.thinkingDurationMs : 0}
               thinkingLabel={props.t('thinkingShort')}
+              dealOrder={dealOrder.get(index) ?? 0}
+              dealSeatCount={dealSeats.length}
               effect={seatEffect?.seat === index ? seatEffect : undefined}
             />)}
           </div>

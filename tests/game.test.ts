@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { act, advanceAutomatic, createGame, legalActions, potOf, type GameState } from '../src/client/game.ts'
+import { act, advanceAutomatic, blindSeatIndices, createGame, legalActions, potOf, type GameState } from '../src/client/game.ts'
 
 function seeded(seed = 1): () => number {
   let value = seed >>> 0
@@ -46,6 +46,7 @@ test('deals six unique pairs, posts blinds, and starts UTG', () => {
   assert.equal(new Set(game.seats.flatMap(seat => seat.hole).map(card => `${card.rank}-${card.suit}`)).size, 12)
   assert.equal(game.seats[0]?.streetBet, 50)
   assert.equal(game.seats[1]?.streetBet, 100)
+  assert.deepEqual(blindSeatIndices(game), { smallBlindSeat: 0, bigBlindSeat: 1 })
   assert.equal(game.actingSeat, 2)
   assert.deepEqual(game.pendingActors, [0, 1, 2, 3, 4, 5])
   assert.equal(potOf(game), 150)
@@ -110,6 +111,7 @@ test('heads-up button posts the small blind and acts first preflop', () => {
   assert.equal(headsUp.dealer, 0)
   assert.equal(headsUp.seats[0]?.streetBet, 50)
   assert.equal(headsUp.seats[1]?.streetBet, 100)
+  assert.deepEqual(blindSeatIndices(headsUp), { smallBlindSeat: 0, bigBlindSeat: 1 })
   assert.equal(headsUp.actingSeat, 0)
 
   let postflop = act(headsUp, 'call')
