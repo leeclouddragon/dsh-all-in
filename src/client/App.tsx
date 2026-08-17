@@ -15,6 +15,12 @@ interface OverlayProps extends StandardProps, TableFace {
   readonly t: T
 }
 
+interface SeatEffect {
+  readonly id: number
+  readonly seat: number
+  readonly kind: 'chips' | 'fold'
+}
+
 function currentRunning(props: StandardProps): boolean {
   return props.useSessions(state => state.current === undefined ? false : state.byId[state.current]?.running === true)
 }
@@ -49,7 +55,7 @@ function PlayingCard({ card, hidden = false, empty = false }: { card?: Card | un
   )
 }
 
-function SeatView({ seat, position, dealer, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel }: {
+function SeatView({ seat, position, dealer, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, effect }: {
   seat: Seat
   position: number
   dealer: boolean
@@ -58,17 +64,26 @@ function SeatView({ seat, position, dealer, reveal, acting, thinkingMs, thinking
   thinkingMs: number
   thinkingDurationMs: number
   thinkingLabel: string
+  effect?: SeatEffect | undefined
 }): React.ReactElement {
   const initials = seat.name === 'You' ? 'YOU' : seat.name.slice(0, 2).toUpperCase()
   const thinkingProgress = thinkingDurationMs <= 0 ? 0 : Math.max(0, Math.min(1, thinkingMs / thinkingDurationMs))
   return (
-    <div className="ai-seat" data-pos={position} data-folded={String(seat.folded)} data-hero={String(!seat.bot)} data-acting={String(acting)}>
+    <div className="ai-seat" data-pos={position} data-folded={String(seat.folded)} data-hero={String(!seat.bot)} data-acting={String(acting)} data-effect={effect?.kind}>
       <div className="ai-hole">
         {seat.hole.length === 0 ? null : seat.hole.map((card, index) => (
           <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={seat.bot && !reveal} />
         ))}
       </div>
-      {seat.streetBet > 0 ? <div className="ai-bet">● {seat.streetBet.toLocaleString()}</div> : null}
+      {effect?.kind === 'chips' ? (
+        <span key={effect.id} className="ai-chip-flight" aria-hidden><i /><i /><i /></span>
+      ) : null}
+      {seat.streetBet > 0 ? (
+        <div className="ai-bet">
+          <span className="ai-chip-stack" aria-hidden><i /><i /><i /></span>
+          <span>{seat.streetBet.toLocaleString()}</span>
+        </div>
+      ) : null}
       <div className="ai-player">
         <span className="ai-avatar">{initials}</span>
         <span className="ai-player-meta">
@@ -109,6 +124,39 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const { game } = snapshot
   const legal = legalActions(game)
   const overlayRef = React.useRef<HTMLElement | null>(null)
+  const previousGameRef = React.useRef(game)
+  const effectIdRef = React.useRef(0)
+  const [seatEffect, setSeatEffect] = React.useState<SeatEffect | undefined>()
+
+  React.useLayoutEffect(() => {
+    const previous = previousGameRef.current
+    previousGameRef.current = game
+    if (previous === game || previous.handNumber !== game.handNumber) {
+      setSeatEffect(undefined)
+      return undefined
+    }
+    let nextEffect: SeatEffect | undefined
+    for (let index = 0; index < game.seats.length; index += 1) {
+      const before = previous.seats[index]
+      const after = game.seats[index]
+      if (before === undefined || after === undefined) continue
+      const kind = !before.folded && after.folded
+        ? 'fold'
+        : after.committed > before.committed ? 'chips' : undefined
+      if (kind !== undefined) {
+        effectIdRef.current += 1
+        nextEffect = { id: effectIdRef.current, seat: index, kind }
+        break
+      }
+    }
+    if (nextEffect === undefined) return undefined
+    setSeatEffect(nextEffect)
+    const effectId = nextEffect.id
+    const timer = window.setTimeout(() => {
+      setSeatEffect(current => current?.id === effectId ? undefined : current)
+    }, nextEffect.kind === 'fold' ? 820 : 920)
+    return () => { window.clearTimeout(timer) }
+  }, [game])
 
   React.useLayoutEffect(() => {
     if (!snapshot.open) return undefined
@@ -187,6 +235,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               thinkingMs={snapshot.thinkingSeat === index ? snapshot.thinkingRemainingMs : 0}
               thinkingDurationMs={snapshot.thinkingSeat === index ? snapshot.thinkingDurationMs : 0}
               thinkingLabel={props.t('thinkingShort')}
+              effect={seatEffect?.seat === index ? seatEffect : undefined}
             />)}
           </div>
         </main>
