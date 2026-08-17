@@ -1,4 +1,4 @@
-import { createDeck, evaluateBest, shuffle, compareValues, type Card, type HandValue } from './poker.ts'
+import { compareValues, createDeck, evaluateBest, shuffle, type Card, type HandValue } from './poker.ts'
 
 export type Street = 'preflop' | 'flop' | 'turn' | 'river' | 'hand-over'
 export type PlayerAction = 'fold' | 'check' | 'call' | 'raise' | 'all-in'
@@ -26,6 +26,10 @@ export interface GameState {
   readonly smallBlind: number
   readonly bigBlind: number
   readonly currentBet: number
+  readonly lastRaiseSize: number
+  readonly actingSeat: number | null
+  readonly pendingActors: readonly number[]
+  readonly actedSinceFullRaise: readonly number[]
   readonly userSeat: number
   readonly pot: number
   readonly logs: readonly string[]
@@ -51,12 +55,12 @@ function replaceSeat(state: GameState, index: number, change: (seat: Seat) => Se
 }
 
 function addLog(state: GameState, message: string): GameState {
-  return { ...state, logs: [...state.logs.slice(-5), message] }
+  return { ...state, logs: [...state.logs.slice(-8), message] }
 }
 
 function pay(state: GameState, index: number, requested: number): GameState {
   const seat = state.seats[index] as Seat
-  const amount = Math.min(requested, seat.stack)
+  const amount = Math.min(Math.max(0, requested), seat.stack)
   return replaceSeat(state, index, current => ({
     ...current,
     stack: current.stack - amount,
@@ -66,30 +70,48 @@ function pay(state: GameState, index: number, requested: number): GameState {
   }))
 }
 
-function nextLiveIndex(seats: readonly Seat[], from: number): number {
+function nextIndex(seats: readonly Seat[], from: number, predicate: (seat: Seat, index: number) => boolean): number | null {
   for (let offset = 1; offset <= seats.length; offset += 1) {
     const index = (from + offset) % seats.length
-    if ((seats[index]?.stack ?? 0) > 0) return index
+    const seat = seats[index]
+    if (seat !== undefined && predicate(seat, index)) return index
   }
-  return from
+  return null
+}
+
+function nextFundedIndex(seats: readonly Seat[], from: number): number {
+  return nextIndex(seats, from, seat => seat.stack > 0) ?? from
+}
+
+function nextPendingIndex(state: GameState, from: number, pending: readonly number[]): number | null {
+  const allowed = new Set(pending)
+  return nextIndex(state.seats, from, (_seat, index) => allowed.has(index))
 }
 
 function activeSeats(state: GameState): Array<[number, Seat]> {
   return state.seats.map((seat, index) => [index, seat] as [number, Seat]).filter(([, seat]) => !seat.folded)
 }
 
+function actionableIndices(state: GameState): number[] {
+  return state.seats.flatMap((seat, index) => !seat.folded && !seat.allIn ? [index] : [])
+}
+
+function withPot(state: GameState): GameState {
+  return { ...state, pot: potOf(state) }
+}
+
 function awardUncontested(state: GameState): GameState {
   const active = activeSeats(state)
   if (active.length !== 1) return state
   const [index, winner] = active[0] as [number, Seat]
-  const pot = state.pot
+  const pot = potOf(state)
   let next = replaceSeat(state, index, seat => ({ ...seat, stack: seat.stack + pot, result: `Won ${pot.toLocaleString()}` }))
-  next = { ...next, street: 'hand-over', currentBet: 0, winners: [winner.id] }
+  next = { ...next, street: 'hand-over', currentBet: 0, actingSeat: null, pendingActors: [], winners: [winner.id], pot }
   return addLog(next, `${winner.name} wins ${pot.toLocaleString()} uncontested`)
 }
 
 function settleShowdown(state: GameState): GameState {
-  let seats = state.seats.map(seat => ({ ...seat }))
+  const seats = state.seats.map(seat => ({ ...seat }))
   const levels = [...new Set(seats.map(seat => seat.committed).filter(value => value > 0))].sort((a, b) => a - b)
   let lower = 0
   const won = new Map<number, number>()
@@ -113,7 +135,7 @@ function settleShowdown(state: GameState): GameState {
     let remainder = amount - share * winners.length
     for (const index of winners) {
       won.set(index, (won.get(index) ?? 0) + share + (remainder > 0 ? 1 : 0))
-      remainder -= remainder > 0 ? 1 : 0
+      if (remainder > 0) remainder -= 1
     }
   }
   for (const [index, amount] of won) {
@@ -123,7 +145,17 @@ function settleShowdown(state: GameState): GameState {
   }
   const winnerIds = [...won.keys()].map(index => (seats[index] as Seat).id)
   const names = [...won.keys()].map(index => (seats[index] as Seat).name).join(' & ')
-  return addLog({ ...state, seats, street: 'hand-over', currentBet: 0, winners: winnerIds }, `${names} win the showdown`)
+  const pot = potOf(state)
+  return addLog({
+    ...state,
+    seats,
+    street: 'hand-over',
+    currentBet: 0,
+    actingSeat: null,
+    pendingActors: [],
+    winners: winnerIds,
+    pot,
+  }, `${names} win the showdown`)
 }
 
 function revealTo(state: GameState, count: number): GameState {
@@ -137,22 +169,29 @@ function revealTo(state: GameState, count: number): GameState {
   return { ...state, board, deck }
 }
 
-function resetStreet(state: GameState): GameState {
-  return {
+function beginPostflopStreet(state: GameState, street: Exclude<Street, 'preflop' | 'hand-over'>, boardCount: number): GameState {
+  let next = revealTo({
     ...state,
+    street,
     currentBet: 0,
+    lastRaiseSize: state.bigBlind,
+    actedSinceFullRaise: [],
     seats: state.seats.map(seat => ({ ...seat, streetBet: 0 })),
-  }
+  }, boardCount)
+  const actionable = actionableIndices(next)
+  const pending = actionable.length >= 2 ? actionable : []
+  const actingSeat = pending.length === 0 ? null : nextIndex(next.seats, next.dealer, (_seat, index) => pending.includes(index))
+  next = { ...next, pendingActors: pending, actingSeat }
+  return addLog(next, street === 'flop' ? 'Flop dealt' : street === 'turn' ? 'Turn dealt' : 'River dealt')
 }
 
-function advanceStreet(state: GameState): GameState {
+function finishStreet(state: GameState): GameState {
   const uncontested = awardUncontested(state)
   if (uncontested.street === 'hand-over') return uncontested
-  const ready = resetStreet(state)
-  if (state.street === 'preflop') return addLog({ ...revealTo(ready, 3), street: 'flop' }, 'Flop dealt')
-  if (state.street === 'flop') return addLog({ ...revealTo(ready, 4), street: 'turn' }, 'Turn dealt')
-  if (state.street === 'turn') return addLog({ ...revealTo(ready, 5), street: 'river' }, 'River dealt')
-  if (state.street === 'river') return settleShowdown(revealTo(ready, 5))
+  if (state.street === 'preflop') return beginPostflopStreet(state, 'flop', 3)
+  if (state.street === 'flop') return beginPostflopStreet(state, 'turn', 4)
+  if (state.street === 'turn') return beginPostflopStreet(state, 'river', 5)
+  if (state.street === 'river') return settleShowdown(revealTo(state, 5))
   return state
 }
 
@@ -174,57 +213,114 @@ function botStrength(state: GameState, seat: Seat): number {
   return Math.min(1, value.category / 8 + (value.kickers[0] ?? 0) / 42)
 }
 
-function botsRespond(state: GameState, random: () => number): GameState {
+function legalActionsFor(state: GameState, index: number): LegalActions {
+  const seat = state.seats[index] as Seat
+  const ownsTurn = state.street !== 'hand-over' && state.actingSeat === index && !seat.folded && !seat.allIn
+  const toCall = Math.max(0, state.currentBet - seat.streetBet)
+  const pot = potOf(state)
+  const suggestedRaise = Math.max(state.lastRaiseSize, Math.round(Math.max(state.bigBlind, pot * 0.75) / state.bigBlind) * state.bigBlind)
+  const raiseTo = state.currentBet + suggestedRaise
+  const maximumTo = seat.streetBet + seat.stack
+  const raiseRightsOpen = !state.actedSinceFullRaise.includes(index)
+  return {
+    toCall,
+    raiseTo,
+    canCheck: ownsTurn && toCall === 0,
+    canCall: ownsTurn && toCall > 0 && seat.stack > 0,
+    canRaise: ownsTurn && raiseRightsOpen && maximumTo >= state.currentBet + state.lastRaiseSize,
+    canAllIn: ownsTurn && seat.stack > 0,
+  }
+}
+
+function recordActed(state: GameState, index: number): number[] {
+  return state.actedSinceFullRaise.includes(index)
+    ? [...state.actedSinceFullRaise]
+    : [...state.actedSinceFullRaise, index]
+}
+
+function resolveAfterAction(state: GameState, actor: number, fullRaise: boolean, raisedBet: boolean): GameState {
+  const uncontested = awardUncontested(state)
+  if (uncontested.street === 'hand-over') return uncontested
+
+  const actionable = actionableIndices(state)
+  let pending: number[]
+  let acted = recordActed(state, actor)
+  if (fullRaise) {
+    pending = actionable.filter(index => index !== actor)
+    acted = [actor]
+  } else {
+    const remaining = state.pendingActors.filter(index => index !== actor && actionable.includes(index))
+    const owesNewBet = raisedBet
+      ? actionable.filter(index => index !== actor && (state.seats[index]?.streetBet ?? 0) < state.currentBet)
+      : []
+    pending = [...new Set([...remaining, ...owesNewBet])]
+  }
+
+  if (pending.length === 0) return withPot(finishStreet({ ...state, pendingActors: [], actingSeat: null, actedSinceFullRaise: acted }))
+  const actingSeat = nextPendingIndex(state, actor, pending)
+  if (actingSeat === null) throw new Error('pending betting actors have no next seat')
+  return withPot({ ...state, pendingActors: pending, actingSeat, actedSinceFullRaise: acted })
+}
+
+function actAt(state: GameState, index: number, action: PlayerAction): GameState {
+  if (state.street === 'hand-over' || state.actingSeat !== index) return state
+  const legal = legalActionsFor(state, index)
+  const seat = state.seats[index] as Seat
   let next = state
-  for (let index = 0; index < next.seats.length; index += 1) {
-    const seat = next.seats[index] as Seat
-    if (!seat.bot || seat.folded || seat.allIn) continue
-    const toCall = Math.max(0, next.currentBet - seat.streetBet)
-    if (toCall === 0) {
-      next = addLog(next, `${seat.name} checks`)
-      continue
+  let fullRaise = false
+  let raisedBet = false
+
+  if (action === 'fold') {
+    next = replaceSeat(next, index, current => ({ ...current, folded: true }))
+    next = addLog(next, `${seat.name} folds`)
+  } else if (action === 'check' && legal.canCheck) {
+    next = addLog(next, `${seat.name} checks`)
+  } else if (action === 'call' && legal.canCall) {
+    const amount = Math.min(legal.toCall, seat.stack)
+    next = pay(next, index, legal.toCall)
+    next = addLog(next, `${seat.name} calls ${amount.toLocaleString()}${amount < legal.toCall ? ' all-in' : ''}`)
+  } else if (action === 'raise' && legal.canRaise) {
+    const oldBet = next.currentBet
+    const amount = Math.min(seat.stack, legal.raiseTo - seat.streetBet)
+    next = pay(next, index, amount)
+    const newBet = (next.seats[index] as Seat).streetBet
+    const raiseSize = newBet - oldBet
+    next = { ...next, currentBet: newBet, lastRaiseSize: raiseSize }
+    next = addLog(next, `${seat.name} raises to ${newBet.toLocaleString()}`)
+    fullRaise = true
+    raisedBet = true
+  } else if (action === 'all-in' && legal.canAllIn) {
+    const oldBet = next.currentBet
+    next = pay(next, index, seat.stack)
+    const newBet = (next.seats[index] as Seat).streetBet
+    if (newBet > oldBet) {
+      const raiseSize = newBet - oldBet
+      fullRaise = raiseSize >= next.lastRaiseSize
+      raisedBet = true
+      next = { ...next, currentBet: newBet, lastRaiseSize: fullRaise ? raiseSize : next.lastRaiseSize }
     }
-    const strength = botStrength(next, seat)
-    const pressure = toCall / Math.max(1, seat.stack + toCall)
-    if (strength + random() * 0.42 < pressure * 1.8 + 0.28) {
-      next = replaceSeat(next, index, current => ({ ...current, folded: true }))
-      next = addLog(next, `${seat.name} folds`)
-    } else {
-      next = pay(next, index, toCall)
-      next = addLog(next, `${seat.name} calls ${Math.min(toCall, seat.stack).toLocaleString()}`)
-    }
+    next = addLog(next, `${seat.name} moves all-in for ${seat.stack.toLocaleString()}`)
+  } else {
+    return state
   }
-  return next
+  return resolveAfterAction(next, index, fullRaise, raisedBet)
 }
 
-function finishAfterUserAction(state: GameState, random: () => number): GameState {
-  let next = botsRespond(state, random)
-  next = awardUncontested(next)
-  if (next.street === 'hand-over') return next
-  const user = next.seats[next.userSeat] as Seat
-  if (user.folded) {
-    return advanceStreet(next)
-  }
-  if (user.allIn) {
-    while (next.street !== 'hand-over') next = advanceStreet(next)
-    return next
-  }
-  if (activeSeats(next).every(([, seat]) => seat.allIn)) {
-    while (next.street !== 'hand-over') next = advanceStreet(next)
-    return next
-  }
-  return advanceStreet(next)
-}
+function chooseBotAction(state: GameState, index: number, random: () => number): PlayerAction {
+  const seat = state.seats[index] as Seat
+  const legal = legalActionsFor(state, index)
+  const strength = botStrength(state, seat)
+  const potOdds = legal.toCall / Math.max(1, potOf(state) + legal.toCall)
 
-/** Advance one visible street while the hero is no longer in the hand. */
-export function spectateNext(state: GameState, random: () => number = Math.random): GameState {
-  if (state.street === 'hand-over') return state
-  const user = state.seats[state.userSeat] as Seat
-  if (!user.folded) return state
-  let next = botsRespond(state, random)
-  next = awardUncontested(next)
-  if (next.street !== 'hand-over') next = advanceStreet(next)
-  return { ...next, pot: potOf(next) }
+  if (legal.canCheck) {
+    if (legal.canAllIn && strength > 0.92 && random() < 0.12) return 'all-in'
+    if (legal.canRaise && strength + random() * 0.22 > 0.83) return 'raise'
+    return 'check'
+  }
+  if (strength + random() * 0.34 < potOdds + 0.22) return 'fold'
+  if (legal.canAllIn && strength > 0.9 && random() < 0.2) return 'all-in'
+  if (legal.canRaise && strength + random() * 0.18 > 0.9) return 'raise'
+  return 'call'
 }
 
 export function potOf(state: GameState): number {
@@ -232,57 +328,34 @@ export function potOf(state: GameState): number {
 }
 
 export function legalActions(state: GameState): LegalActions {
-  const user = state.seats[state.userSeat] as Seat
-  const toCall = Math.max(0, state.currentBet - user.streetBet)
-  const pot = potOf(state)
-  const raiseBy = Math.max(state.bigBlind, Math.round(pot * 0.75 / state.bigBlind) * state.bigBlind)
-  const raiseTo = state.currentBet + raiseBy
-  return {
-    toCall,
-    raiseTo,
-    canCheck: state.street !== 'hand-over' && toCall === 0 && !user.folded && !user.allIn,
-    canCall: state.street !== 'hand-over' && toCall > 0 && user.stack > 0 && !user.folded,
-    canRaise: state.street !== 'hand-over' && user.stack > toCall + state.bigBlind && !user.folded,
-    canAllIn: state.street !== 'hand-over' && user.stack > 0 && !user.folded,
-  }
+  return legalActionsFor(state, state.userSeat)
 }
 
-export function act(state: GameState, action: PlayerAction, random: () => number = Math.random): GameState {
+export function act(state: GameState, action: PlayerAction): GameState {
+  return actAt(state, state.userSeat, action)
+}
+
+/** Advance exactly one bot decision or one all-in board runout street. */
+export function advanceAutomatic(state: GameState, random: () => number = Math.random): GameState {
   if (state.street === 'hand-over') return state
-  const legal = legalActions(state)
-  const user = state.seats[state.userSeat] as Seat
-  let next = state
-  if (action === 'fold') {
-    next = replaceSeat(next, state.userSeat, seat => ({ ...seat, folded: true }))
-    next = addLog(next, 'You fold')
-  } else if (action === 'check' && legal.canCheck) {
-    next = addLog(next, 'You check')
-  } else if (action === 'call' && legal.canCall) {
-    next = pay(next, state.userSeat, legal.toCall)
-    next = addLog(next, `You call ${Math.min(legal.toCall, user.stack).toLocaleString()}`)
-  } else if (action === 'raise' && legal.canRaise) {
-    const amount = Math.min(user.stack, legal.raiseTo - user.streetBet)
-    next = pay(next, state.userSeat, amount)
-    next = { ...next, currentBet: (next.seats[state.userSeat] as Seat).streetBet }
-    next = addLog(next, `You raise to ${next.currentBet.toLocaleString()}`)
-  } else if (action === 'all-in' && legal.canAllIn) {
-    next = pay(next, state.userSeat, user.stack)
-    next = { ...next, currentBet: Math.max(next.currentBet, (next.seats[state.userSeat] as Seat).streetBet) }
-    next = addLog(next, `You shove ${user.stack.toLocaleString()}`)
-  } else {
-    return state
-  }
-  const finished = finishAfterUserAction(next, random)
-  return { ...finished, pot: potOf(finished) }
+  if (state.actingSeat === null) return withPot(finishStreet(state))
+  const actor = state.seats[state.actingSeat]
+  if (actor === undefined || !actor.bot) return state
+  return actAt(state, state.actingSeat, chooseBotAction(state, state.actingSeat, random))
 }
 
 export function createGame(random: () => number = Math.random, previous?: GameState): GameState {
   const oldSeats = previous?.seats
   const stacks = NAMES.map((_, index) => oldSeats?.[index]?.stack ?? STARTING_STACK)
   if (stacks.filter(stack => stack > 0).length < 2 || stacks[0] === 0) stacks.fill(STARTING_STACK)
-  const dealer = previous === undefined ? 5 : nextLiveIndex(oldSeats ?? [], previous.dealer)
-  const smallBlindIndex = nextLiveIndex(stacks.map((stack, index) => ({ stack, id: String(index), name: '', bot: true, hole: [], folded: false, allIn: false, streetBet: 0, committed: 0 })), dealer)
-  const bigBlindIndex = nextLiveIndex(stacks.map((stack, index) => ({ stack, id: String(index), name: '', bot: true, hole: [], folded: false, allIn: false, streetBet: 0, committed: 0 })), smallBlindIndex)
+  const dealer = previous === undefined ? 5 : nextFundedIndex(oldSeats ?? [], previous.dealer)
+  const fundedCount = stacks.filter(stack => stack > 0).length
+  const skeleton = stacks.map((stack, index): Seat => ({
+    stack, id: String(index), name: '', bot: true, hole: [], folded: stack === 0,
+    allIn: false, streetBet: 0, committed: 0,
+  }))
+  const smallBlindIndex = fundedCount === 2 ? dealer : nextFundedIndex(skeleton, dealer)
+  const bigBlindIndex = nextFundedIndex(skeleton, smallBlindIndex)
   const deck = shuffle(createDeck(), random)
   const seats: Seat[] = NAMES.map((name, index) => ({
     id: index === 0 ? 'hero' : `bot-${index}`,
@@ -305,6 +378,10 @@ export function createGame(random: () => number = Math.random, previous?: GameSt
     smallBlind: 50,
     bigBlind: 100,
     currentBet: 100,
+    lastRaiseSize: 100,
+    actingSeat: null,
+    pendingActors: [],
+    actedSinceFullRaise: [],
     userSeat: 0,
     pot: 0,
     logs: [`Hand #${(previous?.handNumber ?? 0) + 1}`],
@@ -313,5 +390,9 @@ export function createGame(random: () => number = Math.random, previous?: GameSt
   state = pay(state, smallBlindIndex, state.smallBlind)
   state = pay(state, bigBlindIndex, state.bigBlind)
   state = addLog(state, `${state.seats[smallBlindIndex]?.name} posts ${state.smallBlind}; ${state.seats[bigBlindIndex]?.name} posts ${state.bigBlind}`)
-  return { ...state, pot: potOf(state) }
+  const actionable = actionableIndices(state)
+  const loneActor = actionable.length === 1 ? state.seats[actionable[0] as number] : undefined
+  const pending = loneActor !== undefined && loneActor.streetBet >= state.currentBet ? [] : actionable
+  const actingSeat = nextIndex(state.seats, bigBlindIndex, (_seat, index) => pending.includes(index))
+  return withPot({ ...state, pendingActors: pending, actingSeat })
 }

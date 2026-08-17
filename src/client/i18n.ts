@@ -17,6 +17,8 @@ export const dictionaries = {
     waiting: 'Your move',
     showdown: 'Hand complete',
     spectating: 'Watching the table',
+    acting: 'is acting',
+    dealing: 'Dealer',
     dealer: 'Dealer',
   },
   zh: {
@@ -37,6 +39,8 @@ export const dictionaries = {
     waiting: '轮到你了',
     showdown: '本手结束',
     spectating: '旁观牌局中',
+    acting: '行动中',
+    dealing: '发牌员',
     dealer: '庄家',
   },
 } as const

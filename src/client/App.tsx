@@ -49,10 +49,10 @@ function PlayingCard({ card, hidden = false, empty = false }: { card?: Card | un
   )
 }
 
-function SeatView({ seat, position, dealer, reveal }: { seat: Seat; position: number; dealer: boolean; reveal: boolean }): React.ReactElement {
+function SeatView({ seat, position, dealer, reveal, acting }: { seat: Seat; position: number; dealer: boolean; reveal: boolean; acting: boolean }): React.ReactElement {
   const initials = seat.name === 'You' ? 'YOU' : seat.name.slice(0, 2).toUpperCase()
   return (
-    <div className="ai-seat" data-pos={position} data-folded={String(seat.folded)} data-hero={String(!seat.bot)}>
+    <div className="ai-seat" data-pos={position} data-folded={String(seat.folded)} data-hero={String(!seat.bot)} data-acting={String(acting)}>
       <div className="ai-hole">
         {seat.hole.length === 0 ? null : seat.hole.map((card, index) => (
           <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={seat.bot && !reveal} />
@@ -129,6 +129,8 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const finished = game.street === 'hand-over'
   const hero = game.seats[game.userSeat]
   const spectating = !finished && hero?.folded === true
+  const actor = game.actingSeat === null ? undefined : game.seats[game.actingSeat]
+  const heroTurn = !finished && game.actingSeat === game.userSeat
   const latest = game.logs.at(-1) ?? ''
   const previous = game.logs.at(-2) ?? ''
 
@@ -155,7 +157,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
             <div className="ai-board">
               {[0, 1, 2, 3, 4].map(index => <PlayingCard key={index} card={game.board[index]} empty={game.board[index] === undefined} />)}
             </div>
-            {game.seats.map((seat, index) => <SeatView key={seat.id} seat={seat} position={index} dealer={game.dealer === index} reveal={finished && !seat.folded} />)}
+            {game.seats.map((seat, index) => <SeatView key={seat.id} seat={seat} position={index} dealer={game.dealer === index} reveal={finished && !seat.folded} acting={game.actingSeat === index} />)}
           </div>
         </main>
 
@@ -165,7 +167,9 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
             {finished ? (
               <button type="button" className="ai-action" data-primary="true" onClick={props.nextHand}>{props.t('nextHand')}</button>
             ) : spectating ? (
-              <div className="ai-spectating"><span className="ai-spectating-dot" />{props.t('spectating')} · {STREET_LABEL[game.street]}</div>
+              <div className="ai-spectating"><span className="ai-spectating-dot" />{props.t('spectating')} · {actor?.name ?? STREET_LABEL[game.street]}</div>
+            ) : !heroTurn ? (
+              <div className="ai-spectating"><span className="ai-spectating-dot" />{actor?.name ?? props.t('dealing')} {props.t('acting')}</div>
             ) : (
               <>
                 <ActionButton action="fold" label={props.t('fold')} danger onAction={props.act} />
