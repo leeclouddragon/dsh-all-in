@@ -91,6 +91,26 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const running = currentRunning(props)
   const { game } = snapshot
   const legal = legalActions(game)
+  const overlayRef = React.useRef<HTMLElement | null>(null)
+
+  React.useLayoutEffect(() => {
+    if (!snapshot.open) return undefined
+    const overlay = overlayRef.current
+    const frame = overlay?.parentElement?.parentElement
+    const center = frame?.children.item(1)
+    if (!(overlay instanceof HTMLElement) || !(frame instanceof HTMLElement) || !(center instanceof HTMLElement)) return undefined
+    const positionInsideCenter = (): void => {
+      const frameBox = frame.getBoundingClientRect()
+      const centerBox = center.getBoundingClientRect()
+      overlay.style.left = `${Math.max(0, centerBox.left - frameBox.left)}px`
+      overlay.style.right = `${Math.max(0, frameBox.right - centerBox.right)}px`
+    }
+    positionInsideCenter()
+    const observer = new ResizeObserver(positionInsideCenter)
+    observer.observe(frame)
+    observer.observe(center)
+    return () => { observer.disconnect() }
+  }, [snapshot.open])
 
   React.useEffect(() => {
     if (!snapshot.open) return undefined
@@ -110,18 +130,18 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const previous = game.logs.at(-2) ?? ''
 
   return (
-    <section className="ai-overlay" role="dialog" aria-modal="true" aria-label={props.t('entry')}>
+    <section ref={overlayRef} className="ai-overlay" role="region" aria-label={props.t('entry')}>
       <div className="ai-grain" />
       <div className="ai-shell">
         <header className="ai-topbar">
           <div className="ai-brand">
-            <span className="ai-brandmark">AI</span>
-            <span><div className="ai-title">All In</div><div className="ai-subtitle">No-Limit Hold’em · 6-max · {props.t('playChips')}</div></span>
+            <span><div className="ai-title">No-Limit Hold’em — {game.smallBlind}/{game.bigBlind} chips — 6-max</div><div className="ai-subtitle">{props.t('playChips')}</div></span>
           </div>
-          <div className="ai-status" data-running={String(running)}><span className="ai-status-dot" />{running ? props.t('agentRunning') : props.t('agentIdle')}</div>
           <div className="ai-top-actions">
-            <button type="button" className="ai-ghost" onClick={props.resetTable}>{props.t('reset')}</button>
-            <button type="button" className="ai-close" aria-label={props.t('close')} onClick={props.closeTable}>×</button>
+            <span className="ai-hand-number">Hand #{game.handNumber}</span>
+            <div className="ai-status" data-running={String(running)}><span className="ai-status-dot" />{running ? props.t('agentRunning') : props.t('agentIdle')}</div>
+            <button type="button" className="ai-ghost" aria-label={props.t('reset')} title={props.t('reset')} onClick={props.resetTable}>↻</button>
+            <button type="button" className="ai-close" onClick={props.closeTable}>{props.t('close')}</button>
           </div>
         </header>
 
