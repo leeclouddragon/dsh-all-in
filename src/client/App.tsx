@@ -126,6 +126,8 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
 
   if (!snapshot.open) return null
   const finished = game.street === 'hand-over'
+  const hero = game.seats[game.userSeat]
+  const spectating = !finished && hero?.folded === true
   const latest = game.logs.at(-1) ?? ''
   const previous = game.logs.at(-2) ?? ''
 
@@ -161,6 +163,8 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
           <div className="ai-controls">
             {finished ? (
               <button type="button" className="ai-action" data-primary="true" onClick={props.nextHand}>{props.t('nextHand')}</button>
+            ) : spectating ? (
+              <div className="ai-spectating"><span className="ai-spectating-dot" />{props.t('spectating')} · {STREET_LABEL[game.street]}</div>
             ) : (
               <>
                 <ActionButton action="fold" label={props.t('fold')} danger onAction={props.act} />

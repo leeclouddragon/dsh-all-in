@@ -1,4 +1,4 @@
-import { act, createGame, type PlayerAction } from './game.ts'
+import { act, createGame, spectateNext, type PlayerAction } from './game.ts'
 import type { TableSnapshot, TableStore } from './services.ts'
 
 const STORAGE_KEY = 'dsh-all-in/table-v1'
@@ -18,6 +18,7 @@ function load(): TableSnapshot {
 
 export function createTableStore(): TableStore {
   let snapshot = load()
+  let spectatorTimer: ReturnType<typeof setTimeout> | undefined
   const listeners = new Set<() => void>()
   const publish = (next: TableSnapshot): void => {
     snapshot = next
@@ -30,17 +31,36 @@ export function createTableStore(): TableStore {
     }
     for (const listener of listeners) listener()
   }
+  const stopSpectating = (): void => {
+    if (spectatorTimer === undefined) return
+    clearTimeout(spectatorTimer)
+    spectatorTimer = undefined
+  }
+  const scheduleSpectating = (): void => {
+    stopSpectating()
+    const hero = snapshot.game.seats[snapshot.game.userSeat]
+    if (!snapshot.open || snapshot.game.street === 'hand-over' || hero?.folded !== true) return
+    spectatorTimer = setTimeout(() => {
+      spectatorTimer = undefined
+      publish({ ...snapshot, game: spectateNext(snapshot.game) })
+      scheduleSpectating()
+    }, 950)
+  }
   return {
     getSnapshot: () => snapshot,
     subscribe(listener) {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
     },
-    open: () => { publish({ ...snapshot, open: true }) },
-    close: () => { publish({ ...snapshot, open: false }) },
-    toggle: () => { publish({ ...snapshot, open: !snapshot.open }) },
-    act: (action: PlayerAction) => { publish({ ...snapshot, game: act(snapshot.game, action) }) },
-    nextHand: () => { publish({ ...snapshot, game: createGame(Math.random, snapshot.game) }) },
-    reset: () => { publish({ open: true, game: createGame() }) },
+    open: () => { publish({ ...snapshot, open: true }); scheduleSpectating() },
+    close: () => { stopSpectating(); publish({ ...snapshot, open: false }) },
+    toggle: () => { stopSpectating(); publish({ ...snapshot, open: !snapshot.open }); scheduleSpectating() },
+    act: (action: PlayerAction) => {
+      stopSpectating()
+      publish({ ...snapshot, game: act(snapshot.game, action) })
+      scheduleSpectating()
+    },
+    nextHand: () => { stopSpectating(); publish({ ...snapshot, game: createGame(Math.random, snapshot.game) }) },
+    reset: () => { stopSpectating(); publish({ open: true, game: createGame() }) },
   }
 }

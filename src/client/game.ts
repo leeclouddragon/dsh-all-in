@@ -202,7 +202,10 @@ function finishAfterUserAction(state: GameState, random: () => number): GameStat
   next = awardUncontested(next)
   if (next.street === 'hand-over') return next
   const user = next.seats[next.userSeat] as Seat
-  if (user.folded || user.allIn) {
+  if (user.folded) {
+    return advanceStreet(next)
+  }
+  if (user.allIn) {
     while (next.street !== 'hand-over') next = advanceStreet(next)
     return next
   }
@@ -211,6 +214,17 @@ function finishAfterUserAction(state: GameState, random: () => number): GameStat
     return next
   }
   return advanceStreet(next)
+}
+
+/** Advance one visible street while the hero is no longer in the hand. */
+export function spectateNext(state: GameState, random: () => number = Math.random): GameState {
+  if (state.street === 'hand-over') return state
+  const user = state.seats[state.userSeat] as Seat
+  if (!user.folded) return state
+  let next = botsRespond(state, random)
+  next = awardUncontested(next)
+  if (next.street !== 'hand-over') next = advanceStreet(next)
+  return { ...next, pot: potOf(next) }
 }
 
 export function potOf(state: GameState): number {

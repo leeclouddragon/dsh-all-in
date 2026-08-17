@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { act, createGame, legalActions, potOf, type GameState } from '../src/client/game.ts'
+import { act, createGame, legalActions, potOf, spectateNext, type GameState } from '../src/client/game.ts'
 
 function seeded(seed = 1): () => number {
   let value = seed >>> 0
@@ -44,13 +44,21 @@ test('all-in runs the board and conserves the table bankroll', () => {
   assert.equal(game.seats.reduce((sum, seat) => sum + seat.stack, 0), 60_000)
 })
 
-test('fold completes the hand without charging extra hero chips', () => {
+test('fold leaves the hero spectating while bots finish the hand', () => {
   const random = seeded(99)
   const initial = createGame(random)
   const heroBefore = initial.seats[0]?.stack ?? 0
-  const folded = act(initial, 'fold', random)
-  assert.equal(folded.street, 'hand-over')
-  assert.ok((folded.seats[0]?.stack ?? 0) <= heroBefore)
-  assert.equal(folded.seats.reduce((sum, seat) => sum + seat.stack, 0), 60_000)
-  assert.equal(totalChips(folded), 60_000)
+  let observed = act(initial, 'fold', random)
+  assert.equal(observed.seats[0]?.folded, true)
+  assert.notEqual(observed.street, 'hand-over')
+  assert.equal(observed.board.length, 3)
+  assert.ok((observed.seats[0]?.stack ?? 0) <= heroBefore)
+
+  for (let guard = 0; guard < 4 && observed.street !== 'hand-over'; guard += 1) {
+    observed = spectateNext(observed, random)
+  }
+  assert.equal(observed.street, 'hand-over')
+  assert.equal(observed.board.length, 5)
+  assert.equal(observed.seats.reduce((sum, seat) => sum + seat.stack, 0), 60_000)
+  assert.equal(totalChips(observed), 60_000)
 })

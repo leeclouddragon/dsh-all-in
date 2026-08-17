@@ -163,6 +163,14 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 .ai-action[data-primary="true"]:hover:not(:disabled) { background: var(--dsw-alias-button-primary-hover); }
 .ai-action[data-danger="true"] { color: var(--dsw-alias-label-primary); }
 .ai-action[data-danger="true"]:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover-danger); }
+.ai-spectating {
+  height: 34px; padding: 0 15px; display: flex; align-items: center; gap: 7px;
+  color: var(--dsw-alias-label-secondary); font-size: 11px; white-space: nowrap;
+}
+.ai-spectating-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--ai-blue);
+  box-shadow: 0 0 0 3px var(--ai-blue-soft); animation: ai-pulse 1.2s infinite;
+}
 .ai-hand-meta { display: none; }
 
 @media (max-width: 760px) {
