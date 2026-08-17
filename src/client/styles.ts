@@ -66,37 +66,11 @@ export const STYLES = String.raw`
   position: relative; width: 94cqw; height: 96cqh; min-height: 400px;
 }
 .ai-table {
-  position: absolute; inset: auto 7%; top: 50%; height: min(64cqh, 44cqw);
-  transform: translateY(-50%); border-radius: 28% / 42%;
+  position: absolute; inset: auto 7%; top: 50%; height: min(60cqh, 40cqw);
+  transform: translateY(-50%); border-radius: 999px;
   background: var(--dsw-static-neutral-bluish-50);
   border: 1px solid var(--dsw-alias-border-l1);
   box-shadow: none;
-}
-@supports (clip-path: shape(from 0 0, line to 100% 0, line to 100% 100%, close)) {
-  .ai-table {
-    border: 0; border-radius: 0;
-    clip-path: shape(
-      from 22% 0,
-      line to 78% 0,
-      curve to 84% 3% with 82% 0,
-      line to 97% 28%,
-      curve to 100% 36% with 100% 32%,
-      line to 100% 64%,
-      curve to 97% 72% with 100% 68%,
-      line to 84% 97%,
-      curve to 78% 100% with 82% 100%,
-      line to 22% 100%,
-      curve to 16% 97% with 18% 100%,
-      line to 3% 72%,
-      curve to 0 64% with 0 68%,
-      line to 0 36%,
-      curve to 3% 28% with 0 32%,
-      line to 16% 3%,
-      curve to 22% 0 with 18% 0,
-      close
-    );
-    filter: drop-shadow(0 0 1px var(--dsw-alias-border-l2));
-  }
 }
 body[data-ds-dark-theme] .ai-table {
   background: var(--dsw-static-neutral-bluish-900);
