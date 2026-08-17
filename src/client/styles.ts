@@ -82,18 +82,24 @@ body[data-ds-dark-theme] .ai-table {
 .ai-board { position: absolute; left: 50%; top: 55%; transform: translate(-50%,-50%); display: flex; gap: 6px; }
 .ai-card {
   width: clamp(38px, 3.7vw, 52px); aspect-ratio: .71; border-radius: 7px;
+  position: relative; overflow: hidden;
   background: var(--dsw-static-neutral-00); color: var(--dsw-static-neutral-bluish-1000);
-  border: 1px solid var(--dsw-alias-border-l2); box-shadow: 0 4px 14px rgba(38,49,72,.08);
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
-  padding: 7px; box-sizing: border-box; font: 700 clamp(15px, 1.6vw, 21px)/1 Georgia, serif;
+  border: 1px solid rgba(15,17,21,.08); box-shadow: 0 3px 10px rgba(38,49,72,.06);
+  display: block; padding: 0; box-sizing: border-box;
+  font: 600 clamp(14px, 1.45vw, 19px)/1 var(--dsw-font-family);
 }
 .ai-card[data-red="true"] { color: var(--dsw-static-red-500); }
-.ai-card-suit { align-self: flex-end; font-size: 1.15em; }
+.ai-card-rank { position: absolute; left: 7px; top: 7px; letter-spacing: -.04em; }
+.ai-card-suit { position: absolute; left: 7px; bottom: 6px; font-size: 1.08em; }
 .ai-card-back {
-  background: repeating-linear-gradient(45deg, var(--dsw-static-deepseek-500) 0 4px, var(--dsw-static-deepseek-400) 4px 6px);
-  border: 3px solid var(--dsw-static-neutral-00);
+  display: grid; place-items: center; background: var(--dsw-static-neutral-00);
+  color: var(--dsw-static-neutral-bluish-1000); border-color: rgba(15,17,21,.09);
 }
-.ai-card-empty { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); box-shadow: none; }
+.ai-card-mark { display: block; max-width: 48%; height: auto; }
+.ai-card-empty {
+  display: grid; place-items: center; background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-caption); border-color: var(--dsw-alias-border-l1); box-shadow: none;
+}
 
 .ai-seat { position: absolute; width: 158px; transform: translate(-50%,-50%); text-align: center; opacity: 1; transition: opacity .2s, filter .2s; }
 .ai-seat[data-folded="true"] { opacity: .42; filter: saturate(.35); }
@@ -104,7 +110,10 @@ body[data-ds-dark-theme] .ai-table {
 .ai-seat[data-pos="4"] { left: 87%; top: 29%; }
 .ai-seat[data-pos="5"] { left: 87%; top: 73%; }
 .ai-hole { height: 48px; display: flex; justify-content: center; align-items: flex-end; gap: 3px; margin-bottom: -4px; }
-.ai-hole .ai-card { width: 34px; border-radius: 5px; padding: 4px; font-size: 12px; }
+.ai-hole .ai-card { width: 34px; border-radius: 5px; font-size: 11px; }
+.ai-hole .ai-card-rank { left: 5px; top: 5px; }
+.ai-hole .ai-card-suit { left: 5px; bottom: 4px; }
+.ai-hole .ai-card-mark { max-width: 50%; }
 .ai-hole .ai-card:first-child { transform: rotate(-4deg) translateX(2px); }
 .ai-hole .ai-card:last-child { transform: rotate(4deg) translateX(-2px); }
 .ai-player {

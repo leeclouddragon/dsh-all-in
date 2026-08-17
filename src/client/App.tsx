@@ -1,4 +1,5 @@
 import React from 'react'
+import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
 import { legalActions, potOf, type PlayerAction, type Seat, type Street } from './game.ts'
 import { cardText, isRed, type Card } from './poker.ts'
 import type { StandardProps, TableFace } from './services.ts'
@@ -38,12 +39,12 @@ export function SidebarEntry(props: EntryProps): React.ReactElement {
 }
 
 function PlayingCard({ card, hidden = false, empty = false }: { card?: Card | undefined; hidden?: boolean; empty?: boolean }): React.ReactElement {
-  if (empty) return <span className="ai-card ai-card-empty" />
-  if (hidden || card === undefined) return <span className="ai-card ai-card-back" />
+  if (empty) return <span className="ai-card ai-card-empty"><FishLogo className="ai-card-mark" size={22} /></span>
+  if (hidden || card === undefined) return <span className="ai-card ai-card-back"><FishLogo className="ai-card-mark" size={24} /></span>
   const text = cardText(card)
   return (
     <span className="ai-card" data-red={String(isRed(card))}>
-      <span>{text.slice(0, -1)}</span><span className="ai-card-suit">{text.slice(-1)}</span>
+      <span className="ai-card-rank">{text.slice(0, -1)}</span><span className="ai-card-suit">{text.slice(-1)}</span>
     </span>
   )
 }

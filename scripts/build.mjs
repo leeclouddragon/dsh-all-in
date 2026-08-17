@@ -38,7 +38,7 @@ await build({
   platform: 'browser',
   target: 'es2020',
   bundle: true,
-  external: ['react'],
+  external: ['react', '@deepseek-ai/dsh-client-ui-primitives'],
   jsx: 'transform',
   jsxFactory: 'React.createElement',
   jsxFragment: 'React.Fragment',
