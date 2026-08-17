@@ -287,6 +287,7 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 .ai-bottombar {
   position: relative; display: grid; place-items: center;
   padding: 3px 18px 11px; border: 0; background: var(--dsw-alias-bg-base);
+  transform: translateY(clamp(-220px, calc(450px - 50vh), 0px));
 }
 .ai-log {
   position: absolute; left: 50%; top: -5px; transform: translateX(-50%); max-width: min(420px, 72%);
@@ -335,7 +336,7 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
   .ai-player { min-width: 98px; max-width: 118px; grid-template-columns: 25px minmax(0,1fr) auto; gap: 4px; padding: 4px; }
   .ai-avatar { width: 25px; height: 25px; }
   .ai-hole .ai-card { width: 28px; }
-  .ai-bottombar { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; }
+  .ai-bottombar { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; transform: none; }
   .ai-log, .ai-hand-meta { display: none; }
   .ai-controls { flex-wrap: wrap; justify-content: center; }
   .ai-action { min-width: 70px; height: 34px; padding: 0 10px; }
