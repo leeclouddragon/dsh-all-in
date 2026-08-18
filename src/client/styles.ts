@@ -111,7 +111,7 @@ body[data-ds-dark-theme] .ai-table {
   background-size: 5px 5px; opacity: .28;
 }
 .ai-table-logo {
-  position: absolute; z-index: 2; left: 50%; top: 82%; transform: translate(-50%,-50%);
+  position: absolute; z-index: 2; left: 50%; top: 72%; transform: translate(-50%,-50%);
   display: flex; align-items: center; gap: 7px; color: var(--dsw-alias-label-caption);
   opacity: .2; white-space: nowrap; letter-spacing: .14em;
   font: 600 8px/1 var(--dsw-font-family); pointer-events: none;
@@ -205,7 +205,7 @@ body[data-ds-dark-theme] .ai-table {
   position: absolute; z-index: 5; width: 76px; height: 58px; transform: translate(-50%,-50%);
   pointer-events: none;
 }
-.ai-mucked-hand[data-pos="0"] { left: 50%; top: 64%; --ai-muck-from-x: 0cqw; --ai-muck-from-y: 2cqh; }
+.ai-mucked-hand[data-pos="0"] { left: 50%; top: 60%; --ai-muck-from-x: 0cqw; --ai-muck-from-y: 6cqh; }
 .ai-mucked-hand[data-pos="1"] { left: 33%; top: 60%; --ai-muck-from-x: -12cqw; --ai-muck-from-y: -1cqh; }
 .ai-mucked-hand[data-pos="2"] { left: 34%; top: 43%; --ai-muck-from-x: -13cqw; --ai-muck-from-y: -13cqh; }
 .ai-mucked-hand[data-pos="3"] { left: 49%; top: 39%; --ai-muck-from-x: 1cqw; --ai-muck-from-y: -14cqh; }
