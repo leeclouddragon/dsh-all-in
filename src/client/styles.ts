@@ -182,8 +182,7 @@ body[data-ds-dark-theme] .ai-table-logo { opacity: .52; }
 .ai-hole .ai-card:first-child { --ai-card-angle: -4deg; --ai-card-nudge: 2px; transform: rotate(var(--ai-card-angle)) translateX(var(--ai-card-nudge)); }
 .ai-hole .ai-card:last-child { --ai-card-angle: 4deg; --ai-card-nudge: -2px; transform: rotate(var(--ai-card-angle)) translateX(var(--ai-card-nudge)); }
 .ai-table-wrap[data-dealing="true"] .ai-hole .ai-card {
-  animation: ai-hole-deal 560ms cubic-bezier(.16,.78,.22,1) both;
-  animation-delay: calc(var(--ai-deal-step, 0) * 105ms);
+  animation: ai-hole-deal 420ms cubic-bezier(.16,.78,.22,1) both;
 }
 @keyframes ai-hole-deal {
   0% { opacity: 0; transform: translate(var(--ai-deal-x),var(--ai-deal-y)) rotate(-10deg) scale(.72); }
@@ -193,7 +192,7 @@ body[data-ds-dark-theme] .ai-table-logo { opacity: .52; }
 }
 .ai-deck {
   position: absolute; z-index: 7; left: 70%; top: 50%; width: 38px; height: 54px;
-  transform: translate(-50%,-50%); pointer-events: none; animation: ai-deck-fade 1.85s ease both;
+  transform: translate(-50%,-50%); pointer-events: none; animation: ai-deck-breathe 1.1s ease-in-out infinite;
 }
 .ai-deck > span {
   position: absolute; inset: 0; display: grid; place-items: center; border-radius: 6px;
@@ -202,7 +201,7 @@ body[data-ds-dark-theme] .ai-table-logo { opacity: .52; }
 }
 .ai-deck > span:first-child { transform: translate(-4px,3px) rotate(-5deg); }
 .ai-deck > span:last-child { transform: translate(2px,-1px) rotate(3deg); }
-@keyframes ai-deck-fade { 0%, 76% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ai-deck-breathe { 0%,100% { transform: translate(-50%,-50%) rotate(-1deg); } 50% { transform: translate(-50%,-52%) rotate(1deg); } }
 .ai-deck[data-mode="board"] { animation-duration: 950ms; }
 .ai-mucked-hand {
   --ai-muck-from-x: 0px; --ai-muck-from-y: 0px;

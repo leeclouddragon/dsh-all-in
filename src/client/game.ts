@@ -382,12 +382,20 @@ export function createGame(random: () => number = Math.random, previous?: GameSt
   const smallBlindIndex = fundedCount === 2 ? dealer : nextFundedIndex(skeleton, dealer)
   const bigBlindIndex = nextFundedIndex(skeleton, smallBlindIndex)
   const deck = shuffle(createDeck(), random)
+  const holes: Card[][] = NAMES.map(() => [])
+  for (let round = 0; round < 2; round += 1) {
+    for (let offset = 1; offset <= skeleton.length; offset += 1) {
+      const index = (dealer + offset) % skeleton.length
+      if ((stacks[index] ?? 0) <= 0) continue
+      holes[index]?.push(deck.shift() as Card)
+    }
+  }
   const seats: Seat[] = NAMES.map((name, index) => ({
     id: index === 0 ? 'hero' : `bot-${index}`,
     name,
     bot: index !== 0,
     stack: stacks[index] as number,
-    hole: stacks[index] === 0 ? [] : [deck.shift() as Card, deck.shift() as Card],
+    hole: holes[index] ?? [],
     folded: stacks[index] === 0,
     allIn: false,
     streetBet: 0,

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { act, advanceAutomatic, BIG_BLIND, blindSeatIndices, createGame, formatTokenAmount, legalActions, potOf, SMALL_BLIND, STARTING_STACK, type GameState } from '../src/client/game.ts'
+import { createDeck, shuffle } from '../src/client/poker.ts'
 
 function seeded(seed = 1): () => number {
   let value = seed >>> 0
@@ -45,10 +46,14 @@ test('formats large Token amounts for the table HUD', () => {
 
 test('deals six unique pairs, posts blinds, and starts UTG', () => {
   const game = createGame(seeded(7))
+  const shuffled = shuffle(createDeck(), seeded(7))
   assert.equal(game.dealer, 5)
   assert.equal(game.seats.length, 6)
   assert.equal(game.seats.flatMap(seat => seat.hole).length, 12)
   assert.equal(new Set(game.seats.flatMap(seat => seat.hole).map(card => `${card.rank}-${card.suit}`)).size, 12)
+  for (let seat = 0; seat < 6; seat += 1) {
+    assert.deepEqual(game.seats[seat]?.hole, [shuffled[seat], shuffled[seat + 6]], 'cards are dealt clockwise in two rounds')
+  }
   assert.equal(game.seats[0]?.streetBet, SMALL_BLIND)
   assert.equal(game.seats[1]?.streetBet, BIG_BLIND)
   assert.deepEqual(blindSeatIndices(game), { smallBlindSeat: 0, bigBlindSeat: 1 })

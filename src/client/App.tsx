@@ -46,6 +46,8 @@ export function SidebarEntry(props: EntryProps): React.ReactElement {
 
 type DealStyle = React.CSSProperties & { '--ai-deal-step'?: number }
 type PositionBadge = 'D' | 'SB' | 'BB'
+const HOLE_DEAL_INTERVAL_MS = 170
+const HOLE_DEAL_SETTLE_MS = 420
 
 function PlayingCard({ card, hidden = false, empty = false, dealStep }: { card?: Card | undefined; hidden?: boolean; empty?: boolean; dealStep?: number | undefined }): React.ReactElement {
   const style: DealStyle | undefined = dealStep === undefined ? undefined : { '--ai-deal-step': dealStep }
@@ -59,7 +61,7 @@ function PlayingCard({ card, hidden = false, empty = false, dealStep }: { card?:
   )
 }
 
-function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, dealOrder, dealSeatCount, effect }: {
+function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, dealOrder, dealSeatCount, dealing, dealtCards, effect }: {
   seat: Seat
   position: number
   badges: readonly PositionBadge[]
@@ -70,6 +72,8 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
   thinkingLabel: string
   dealOrder: number
   dealSeatCount: number
+  dealing: boolean
+  dealtCards: number
   effect?: SeatEffect | undefined
 }): React.ReactElement {
   const initials = seat.name === 'You' ? 'YOU' : seat.name.slice(0, 2).toUpperCase()
@@ -77,9 +81,11 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
   return (
     <div className="ai-seat" data-pos={position} data-folded={String(seat.folded)} data-hero={String(!seat.bot)} data-acting={String(acting)} data-effect={effect?.kind}>
       <div className="ai-hole">
-        {seat.hole.length === 0 ? null : seat.hole.map((card, index) => (
-          <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={seat.bot && !reveal} dealStep={dealOrder + index * dealSeatCount} />
-        ))}
+        {seat.hole.length === 0 ? null : seat.hole.map((card, index) => {
+          const step = dealOrder + index * dealSeatCount
+          if (dealing && step >= dealtCards) return null
+          return <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={seat.bot && !reveal} dealStep={dealing ? 0 : undefined} />
+        })}
       </div>
       {effect?.kind === 'chips' ? (
         <span key={effect.id} className="ai-chip-flight" aria-hidden><i /><i /><i /></span>
@@ -155,19 +161,30 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const dealtHandRef = React.useRef<string | undefined>()
   const [seatEffect, setSeatEffect] = React.useState<SeatEffect | undefined>()
   const [dealing, setDealing] = React.useState(false)
+  const [dealtCards, setDealtCards] = React.useState(0)
   const [boardDealing, setBoardDealing] = React.useState(false)
   const [boardDealFrom, setBoardDealFrom] = React.useState(game.board.length)
 
   React.useLayoutEffect(() => {
     if (!snapshot.open) {
       setDealing(false)
+      setDealtCards(0)
       return undefined
     }
     if (dealtHandRef.current === holeDealKey) return undefined
     dealtHandRef.current = holeDealKey
     setDealing(true)
-    const timer = window.setTimeout(() => { setDealing(false) }, 1_850)
-    return () => { window.clearTimeout(timer) }
+    setDealtCards(1)
+    const totalCards = game.seats.reduce((sum, seat) => sum + seat.hole.length, 0)
+    const timers: number[] = []
+    for (let count = 2; count <= totalCards; count += 1) {
+      timers.push(window.setTimeout(() => { setDealtCards(count) }, (count - 1) * HOLE_DEAL_INTERVAL_MS))
+    }
+    timers.push(window.setTimeout(() => {
+      setDealing(false)
+      setDealtCards(totalCards)
+    }, Math.max(0, totalCards - 1) * HOLE_DEAL_INTERVAL_MS + HOLE_DEAL_SETTLE_MS))
+    return () => { for (const timer of timers) window.clearTimeout(timer) }
   }, [snapshot.open, holeDealKey])
 
   React.useLayoutEffect(() => {
@@ -315,6 +332,8 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               thinkingLabel={props.t('thinkingShort')}
               dealOrder={dealOrder.get(index) ?? 0}
               dealSeatCount={dealSeats.length}
+              dealing={dealing}
+              dealtCards={dealtCards}
               effect={seatEffect?.seat === index ? seatEffect : undefined}
             />)}
             {game.seats.map((seat, index) => seat.folded && seat.hole.length > 0 ? <MuckedHand
