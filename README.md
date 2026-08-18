@@ -1,6 +1,10 @@
 # dsh-all-in
 
+**Your agent is thinking. You're all in.**
+
 Play a fast, local-only six-max Texas Hold'em hand while DeepSeek Harness is thinking.
+
+![dsh-all-in running inside DeepSeek Harness](assets/table-preview.png)
 
 `dsh-all-in` adds an **All In** action to the Harness sidebar and opens a full-screen poker table through the supported `shell.overlay` slot. The active agent keeps running underneath it. The game never writes to the conversation, calls a model, or uses a network connection.
 
