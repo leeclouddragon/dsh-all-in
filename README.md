@@ -25,7 +25,14 @@ Play a fast, local-only six-max Texas Hold'em hand while DeepSeek Harness is thi
 
 ## Install
 
-From npm after the first release:
+From the prebuilt GitHub Release:
+
+```sh
+dsh plugin --profile web add https://github.com/leeclouddragon/dsh-all-in/releases/download/v0.1.0/dsh-all-in-0.1.0.tgz
+dsh --profile web
+```
+
+From npm after the first npm release:
 
 ```sh
 dsh plugin --profile web add dsh-all-in
