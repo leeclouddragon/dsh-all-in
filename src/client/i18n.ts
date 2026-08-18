@@ -23,6 +23,7 @@ export const dictionaries = {
     thinkingShort: 'Thinking',
     dealingNext: 'Dealing next street',
     dealer: 'Dealer',
+    yourFold: 'Your fold',
   },
   zh: {
     entry: 'All In 德州',
@@ -48,5 +49,6 @@ export const dictionaries = {
     thinkingShort: '思考',
     dealingNext: '准备发下一街',
     dealer: '庄家',
+    yourFold: '你的弃牌',
   },
 } as const

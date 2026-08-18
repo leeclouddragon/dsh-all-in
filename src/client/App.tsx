@@ -111,6 +111,22 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
   )
 }
 
+function MuckedHand({ seat, position, entering, label }: { seat: Seat; position: number; entering: boolean; label: string }): React.ReactElement {
+  const hero = !seat.bot
+  return (
+    <div
+      className="ai-mucked-hand"
+      data-pos={position}
+      data-hero={String(hero)}
+      data-entering={String(entering)}
+      aria-label={hero ? label : `${seat.name} folded`}
+    >
+      {seat.hole.map(card => <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={!hero} />)}
+      {hero ? <span className="ai-muck-label">{label}</span> : null}
+    </div>
+  )
+}
+
 const STREET_LABEL: Record<Street, string> = {
   preflop: 'Pre-flop', flop: 'Flop', turn: 'Turn', river: 'River', 'hand-over': 'Showdown',
 }
@@ -301,6 +317,13 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               dealSeatCount={dealSeats.length}
               effect={seatEffect?.seat === index ? seatEffect : undefined}
             />)}
+            {game.seats.map((seat, index) => seat.folded && seat.hole.length > 0 ? <MuckedHand
+              key={`muck-${seat.id}`}
+              seat={seat}
+              position={index}
+              entering={seatEffect?.seat === index && seatEffect.kind === 'fold'}
+              label={props.t('yourFold')}
+            /> : null)}
           </div>
         </main>
 

@@ -163,7 +163,7 @@ body[data-ds-dark-theme] .ai-table {
 }
 .ai-seat[data-folded="true"] { opacity: .42; filter: saturate(.35); }
 .ai-seat[data-effect="fold"] { opacity: 1; filter: none; }
-.ai-seat[data-folded="true"]:not([data-effect="fold"]) .ai-hole { opacity: 0; }
+.ai-seat[data-folded="true"] .ai-hole { opacity: 0; }
 .ai-seat[data-pos="0"] { left: 50%; top: calc(50% + var(--ai-table-half-height)); --ai-chip-y: -78px; --ai-muck-y: -180px; --ai-deal-x: 20cqw; --ai-deal-y: calc(64px - var(--ai-table-half-height)); }
 .ai-seat[data-pos="1"] { left: 21%; top: calc(50% + var(--ai-seat-side-y) - var(--ai-seat-anchor-offset)); --ai-chip-x: 100px; --ai-chip-y: -42px; --ai-muck-x: 165px; --ai-muck-y: -92px; --ai-deal-x: 49cqw; --ai-deal-y: calc(64px + var(--ai-seat-anchor-offset) - var(--ai-seat-side-y)); }
 .ai-seat[data-pos="2"] { left: 21%; top: calc(50% - var(--ai-seat-side-y) - var(--ai-seat-anchor-offset)); --ai-chip-x: 100px; --ai-chip-y: 42px; --ai-muck-x: 165px; --ai-muck-y: 92px; --ai-deal-x: 49cqw; --ai-deal-y: calc(64px + var(--ai-seat-anchor-offset) + var(--ai-seat-side-y)); }
@@ -200,17 +200,44 @@ body[data-ds-dark-theme] .ai-table {
 .ai-deck > span:last-child { transform: translate(2px,-1px) rotate(3deg); }
 @keyframes ai-deck-fade { 0%, 76% { opacity: 1; } 100% { opacity: 0; } }
 .ai-deck[data-mode="board"] { animation-duration: 950ms; }
-.ai-seat[data-effect="fold"] .ai-hole .ai-card:first-child { animation: ai-fold-card-left 760ms cubic-bezier(.2,.72,.22,1) forwards; }
-.ai-seat[data-effect="fold"] .ai-hole .ai-card:last-child { animation: ai-fold-card-right 760ms cubic-bezier(.2,.72,.22,1) 35ms forwards; }
-@keyframes ai-fold-card-left {
-  0% { opacity: 1; transform: rotate(-4deg) translateX(2px) scale(1); }
-  24% { opacity: 1; transform: rotate(-10deg) translate(-5px,-5px) scale(1.03); }
-  100% { opacity: 0; transform: translate(var(--ai-muck-x),var(--ai-muck-y)) rotate(-22deg) scale(.74); }
+.ai-mucked-hand {
+  --ai-muck-from-x: 0px; --ai-muck-from-y: 0px;
+  position: absolute; z-index: 5; width: 76px; height: 58px; transform: translate(-50%,-50%);
+  pointer-events: none;
 }
-@keyframes ai-fold-card-right {
-  0% { opacity: 1; transform: rotate(4deg) translateX(-2px) scale(1); }
-  20% { opacity: 1; transform: rotate(11deg) translate(5px,-3px) scale(1.03); }
-  100% { opacity: 0; transform: translate(var(--ai-muck-x),var(--ai-muck-y)) rotate(18deg) scale(.7); }
+.ai-mucked-hand[data-pos="0"] { left: 42%; top: 64%; --ai-muck-from-x: 8cqw; --ai-muck-from-y: 2cqh; }
+.ai-mucked-hand[data-pos="1"] { left: 33%; top: 60%; --ai-muck-from-x: -12cqw; --ai-muck-from-y: -1cqh; }
+.ai-mucked-hand[data-pos="2"] { left: 34%; top: 43%; --ai-muck-from-x: -13cqw; --ai-muck-from-y: -13cqh; }
+.ai-mucked-hand[data-pos="3"] { left: 49%; top: 39%; --ai-muck-from-x: 1cqw; --ai-muck-from-y: -14cqh; }
+.ai-mucked-hand[data-pos="4"] { left: 64%; top: 43%; --ai-muck-from-x: 15cqw; --ai-muck-from-y: -13cqh; }
+.ai-mucked-hand[data-pos="5"] { left: 65%; top: 60%; --ai-muck-from-x: 14cqw; --ai-muck-from-y: -1cqh; }
+.ai-mucked-hand .ai-card {
+  position: absolute; left: 50%; top: 50%; width: 34px; border-radius: 5px; font-size: 11px;
+  box-shadow: 0 4px 12px rgba(38,49,72,.12);
+}
+.ai-mucked-hand .ai-card-rank { left: 5px; top: 5px; }
+.ai-mucked-hand .ai-card-suit { left: 5px; bottom: 4px; }
+.ai-mucked-hand .ai-card-mark { max-width: 50%; }
+.ai-mucked-hand .ai-card:first-child { z-index: 1; transform: translate(-68%,-50%) rotate(-14deg); }
+.ai-mucked-hand .ai-card:nth-child(2) { z-index: 2; transform: translate(-30%,-48%) rotate(11deg); }
+.ai-mucked-hand[data-hero="false"] { opacity: .76; filter: saturate(.72); }
+.ai-mucked-hand[data-hero="true"] { z-index: 7; }
+.ai-mucked-hand[data-hero="true"] .ai-card { box-shadow: 0 0 0 2px var(--ai-blue-soft), 0 5px 14px rgba(38,49,72,.14); }
+.ai-muck-label {
+  position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary); font: 700 7px/1 var(--dsw-font-family); letter-spacing: .12em; text-transform: uppercase;
+}
+.ai-mucked-hand[data-entering="true"] .ai-card:first-child { animation: ai-muck-land-left 780ms cubic-bezier(.18,.78,.2,1) both; }
+.ai-mucked-hand[data-entering="true"] .ai-card:nth-child(2) { animation: ai-muck-land-right 820ms cubic-bezier(.18,.78,.2,1) 35ms both; }
+@keyframes ai-muck-land-left {
+  0% { opacity: 1; transform: translate(calc(-68% + var(--ai-muck-from-x)),calc(-50% + var(--ai-muck-from-y))) rotate(-3deg) scale(1); }
+  72% { opacity: 1; transform: translate(-72%,-55%) rotate(-18deg) scale(1.04); }
+  100% { opacity: 1; transform: translate(-68%,-50%) rotate(-14deg) scale(1); }
+}
+@keyframes ai-muck-land-right {
+  0% { opacity: 1; transform: translate(calc(-30% + var(--ai-muck-from-x)),calc(-48% + var(--ai-muck-from-y))) rotate(4deg) scale(1); }
+  74% { opacity: 1; transform: translate(-26%,-53%) rotate(15deg) scale(1.04); }
+  100% { opacity: 1; transform: translate(-30%,-48%) rotate(11deg) scale(1); }
 }
 .ai-player {
   position: relative;
@@ -369,6 +396,8 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
   .ai-player { min-width: 98px; max-width: 118px; grid-template-columns: 25px minmax(0,1fr) auto; gap: 4px; padding: 4px; }
   .ai-avatar { width: 25px; height: 25px; }
   .ai-hole .ai-card { width: 28px; }
+  .ai-mucked-hand .ai-card { width: 28px; }
+  .ai-mucked-hand { transform: translate(-50%,-50%) scale(.88); }
   .ai-bottombar { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; transform: none; }
   .ai-log, .ai-hand-meta { display: none; }
   .ai-controls { flex-wrap: wrap; justify-content: center; }
@@ -378,6 +407,6 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 @media (prefers-reduced-motion: reduce) {
   .ai-status-dot, .ai-seat, .ai-seat[data-acting="true"] .ai-player, .ai-card, .ai-bet, .ai-deck { animation: none; transition: none; }
   .ai-chip-flight { display: none; }
-  .ai-seat[data-effect="fold"] .ai-hole { opacity: 0; }
+  .ai-mucked-hand[data-entering="true"] .ai-card { animation: none; }
 }
 `
