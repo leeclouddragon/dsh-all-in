@@ -1,6 +1,6 @@
 import React from 'react'
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
-import { blindSeatIndices, formatTokenAmount, legalActions, potOf, type PlayerAction, type Seat, type Street } from './game.ts'
+import { blindSeatIndices, formatTokenAmount, legalActions, potOf, type LegalActions, type PlayerAction, type Seat, type Street } from './game.ts'
 import { cardText, isRed, type Card } from './poker.ts'
 import type { StandardProps, TableFace } from './services.ts'
 
@@ -168,9 +168,75 @@ function ActionButton({ action, label, disabled, primary, danger, onAction }: {
   disabled?: boolean
   primary?: boolean
   danger?: boolean
-  onAction: (action: PlayerAction) => void
+  onAction: (action: PlayerAction, raiseTo?: number) => void
 }): React.ReactElement {
   return <button type="button" className="ai-action" data-primary={primary || undefined} data-danger={danger || undefined} disabled={disabled} onClick={() => { onAction(action) }}>{label}</button>
+}
+
+function normalizedRaiseTo(value: number, legal: LegalActions, step: number): number {
+  const bounded = Math.max(legal.minRaiseTo, Math.min(legal.maxRaiseTo, value))
+  const snapped = legal.minRaiseTo + Math.round((bounded - legal.minRaiseTo) / Math.max(1, step)) * Math.max(1, step)
+  return Math.max(legal.minRaiseTo, Math.min(legal.maxRaiseTo, snapped))
+}
+
+function RaiseSizer({ legal, pot, currentBet, step, value, onChange, t }: {
+  legal: LegalActions
+  pot: number
+  currentBet: number
+  step: number
+  value: number
+  onChange: (value: number) => void
+  t: T
+}): React.ReactElement {
+  const [draft, setDraft] = React.useState(String(value))
+  React.useEffect(() => { setDraft(String(value)) }, [value])
+  const choose = (target: number): void => { onChange(normalizedRaiseTo(target, legal, step)) }
+  const potTarget = (fraction: number): number => currentBet + (pot + legal.toCall) * fraction
+  const commitDraft = (): void => {
+    const parsed = Number(draft.replaceAll(',', '').trim())
+    if (Number.isFinite(parsed)) choose(parsed)
+    else setDraft(String(value))
+  }
+  return (
+    <div className="ai-raise-sizer" aria-label={t('raiseSizing')}>
+      <div className="ai-raise-presets">
+        <button type="button" onClick={() => { choose(legal.minRaiseTo) }}>{t('minimum')}</button>
+        <button type="button" onClick={() => { choose(potTarget(0.5)) }}>½</button>
+        <button type="button" onClick={() => { choose(potTarget(0.75)) }}>¾</button>
+        <button type="button" onClick={() => { choose(potTarget(1)) }}>{t('pot')}</button>
+        <button type="button" onClick={() => { choose(legal.maxRaiseTo) }}>{t('maximum')}</button>
+      </div>
+      <input
+        className="ai-raise-range"
+        type="range"
+        min={legal.minRaiseTo}
+        max={legal.maxRaiseTo}
+        step={Math.max(1, step)}
+        value={value}
+        aria-label={t('raiseAmount')}
+        onChange={(event) => { choose(Number(event.currentTarget.value)) }}
+      />
+      <label className="ai-raise-input">
+        <span>{t('raiseTo')}</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={draft}
+          aria-label={t('raiseAmount')}
+          onChange={(event) => { setDraft(event.currentTarget.value) }}
+          onBlur={commitDraft}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              commitDraft()
+              event.currentTarget.blur()
+            }
+          }}
+        />
+        <strong>{formatTokenAmount(value)}</strong>
+      </label>
+    </div>
+  )
 }
 
 export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
@@ -193,6 +259,11 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const [dealtCards, setDealtCards] = React.useState(0)
   const [boardDealing, setBoardDealing] = React.useState(false)
   const [boardDealFrom, setBoardDealFrom] = React.useState(game.board.length)
+  const [raiseTo, setRaiseTo] = React.useState(legal.raiseTo)
+
+  React.useEffect(() => {
+    setRaiseTo(legal.raiseTo)
+  }, [game.handNumber, game.street, game.actingSeat, game.currentBet, game.lastRaiseSize])
 
   React.useLayoutEffect(() => {
     if (!snapshot.open) {
@@ -411,22 +482,33 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
 
         <footer className="ai-bottombar">
           <div className="ai-log"><strong>{latest}</strong>{previous}</div>
-          <div className="ai-controls">
-            {finished ? (
-              <button type="button" className="ai-action" data-primary="true" onClick={props.nextHand}>{props.t('nextHand')}</button>
-            ) : spectating ? (
-              <div className="ai-spectating"><span className="ai-spectating-dot" />{props.t('spectating')} · {automaticStatus}</div>
-            ) : !heroTurn ? (
-              <div className="ai-spectating"><span className="ai-spectating-dot" />{automaticStatus}</div>
-            ) : (
-              <>
-                <ActionButton action="fold" label={props.t('fold')} danger onAction={props.act} />
-                <ActionButton action="check" label={props.t('check')} disabled={!legal.canCheck} onAction={props.act} />
-                <ActionButton action="call" label={`${props.t('call')} ${formatTokenAmount(legal.toCall)}`} disabled={!legal.canCall} onAction={props.act} />
-                <ActionButton action="raise" label={`${props.t('raise')} ${formatTokenAmount(legal.raiseTo)}`} disabled={!legal.canRaise} primary onAction={props.act} />
-                <ActionButton action="all-in" label={props.t('allIn')} disabled={!legal.canAllIn} danger onAction={props.act} />
-              </>
-            )}
+          <div className="ai-action-stack">
+            {heroTurn && legal.canRaise ? <RaiseSizer
+              legal={legal}
+              pot={potOf(game)}
+              currentBet={game.currentBet}
+              step={game.smallBlind}
+              value={raiseTo}
+              onChange={setRaiseTo}
+              t={props.t}
+            /> : null}
+            <div className="ai-controls">
+              {finished ? (
+                <button type="button" className="ai-action" data-primary="true" onClick={props.nextHand}>{props.t('nextHand')}</button>
+              ) : spectating ? (
+                <div className="ai-spectating"><span className="ai-spectating-dot" />{props.t('spectating')} · {automaticStatus}</div>
+              ) : !heroTurn ? (
+                <div className="ai-spectating"><span className="ai-spectating-dot" />{automaticStatus}</div>
+              ) : (
+                <>
+                  <ActionButton action="fold" label={props.t('fold')} danger onAction={props.act} />
+                  <ActionButton action="check" label={props.t('check')} disabled={!legal.canCheck} onAction={props.act} />
+                  <ActionButton action="call" label={`${props.t('call')} ${formatTokenAmount(legal.toCall)}`} disabled={!legal.canCall} onAction={props.act} />
+                  <button type="button" className="ai-action" data-primary="true" disabled={!legal.canRaise} onClick={() => { props.act('raise', raiseTo) }}>{props.t('raise')} {formatTokenAmount(raiseTo)}</button>
+                  <ActionButton action="all-in" label={props.t('allIn')} disabled={!legal.canAllIn} danger onAction={props.act} />
+                </>
+              )}
+            </div>
           </div>
           <div className="ai-hand-meta"><strong>{finished ? props.t('showdown') : props.t('waiting')}</strong>Hand #{game.handNumber} · {STREET_LABEL[game.street]} · {formatTokenAmount(game.smallBlind)}/{formatTokenAmount(game.bigBlind)} Tokens</div>
         </footer>

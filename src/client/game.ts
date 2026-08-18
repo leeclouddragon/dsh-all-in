@@ -38,6 +38,8 @@ export interface GameState {
 
 export interface LegalActions {
   readonly toCall: number
+  readonly minRaiseTo: number
+  readonly maxRaiseTo: number
   readonly raiseTo: number
   readonly canCheck: boolean
   readonly canCall: boolean
@@ -237,11 +239,14 @@ function legalActionsFor(state: GameState, index: number): LegalActions {
   const toCall = Math.max(0, state.currentBet - seat.streetBet)
   const pot = potOf(state)
   const suggestedRaise = Math.max(state.lastRaiseSize, Math.round(Math.max(state.bigBlind, pot * 0.75) / state.bigBlind) * state.bigBlind)
-  const raiseTo = state.currentBet + suggestedRaise
   const maximumTo = seat.streetBet + seat.stack
+  const minimumTo = state.currentBet + state.lastRaiseSize
+  const raiseTo = Math.min(maximumTo, Math.max(minimumTo, state.currentBet + suggestedRaise))
   const raiseRightsOpen = !state.actedSinceFullRaise.includes(index)
   return {
     toCall,
+    minRaiseTo: minimumTo,
+    maxRaiseTo: maximumTo,
     raiseTo,
     canCheck: ownsTurn && toCall === 0,
     canCall: ownsTurn && toCall > 0 && seat.stack > 0,
@@ -287,7 +292,7 @@ function resolveAfterAction(state: GameState, actor: number, fullRaise: boolean,
   return withPot({ ...state, pendingActors: pending, actingSeat, actedSinceFullRaise: acted })
 }
 
-function actAt(state: GameState, index: number, action: PlayerAction): GameState {
+function actAt(state: GameState, index: number, action: PlayerAction, requestedRaiseTo?: number): GameState {
   if (state.street === 'hand-over' || state.actingSeat !== index) return state
   const legal = legalActionsFor(state, index)
   const seat = state.seats[index] as Seat
@@ -305,8 +310,10 @@ function actAt(state: GameState, index: number, action: PlayerAction): GameState
     next = pay(next, index, legal.toCall)
     next = addLog(next, `${seat.name} calls ${formatTokenAmount(amount)}${amount < legal.toCall ? ' all-in' : ''}`)
   } else if (action === 'raise' && legal.canRaise) {
+    const raiseTo = requestedRaiseTo ?? legal.raiseTo
+    if (!Number.isFinite(raiseTo) || !Number.isInteger(raiseTo) || raiseTo < legal.minRaiseTo || raiseTo > legal.maxRaiseTo) return state
     const oldBet = next.currentBet
-    const amount = Math.min(seat.stack, legal.raiseTo - seat.streetBet)
+    const amount = raiseTo - seat.streetBet
     next = pay(next, index, amount)
     const newBet = (next.seats[index] as Seat).streetBet
     const raiseSize = newBet - oldBet
@@ -356,8 +363,8 @@ export function legalActions(state: GameState): LegalActions {
   return legalActionsFor(state, state.userSeat)
 }
 
-export function act(state: GameState, action: PlayerAction): GameState {
-  return actAt(state, state.userSeat, action)
+export function act(state: GameState, action: PlayerAction, raiseTo?: number): GameState {
+  return actAt(state, state.userSeat, action, raiseTo)
 }
 
 /** Advance exactly one bot decision or one all-in board runout street. */

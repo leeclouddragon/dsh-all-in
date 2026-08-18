@@ -85,6 +85,29 @@ test('a full raise reopens action for players who already acted', () => {
   assert.notEqual(raised.actingSeat, beforeRaise.userSeat)
 })
 
+test('a player can raise to an explicit legal amount', () => {
+  const random = seeded(34)
+  const beforeRaise = advanceUntilUser(createGame(random), random)
+  const legal = legalActions(beforeRaise)
+  assert.equal(legal.canRaise, true)
+  assert.ok(legal.minRaiseTo <= legal.raiseTo)
+  assert.ok(legal.raiseTo <= legal.maxRaiseTo)
+  const target = Math.min(legal.maxRaiseTo, legal.minRaiseTo + SMALL_BLIND * 3)
+  const raised = act(beforeRaise, 'raise', target)
+  assert.equal(raised.currentBet, target)
+  assert.equal(raised.seats[raised.userSeat]?.streetBet, target)
+  assert.match(raised.logs.at(-1) ?? '', /raises to/)
+})
+
+test('an explicit raise outside the legal range is ignored', () => {
+  const random = seeded(35)
+  const beforeRaise = advanceUntilUser(createGame(random), random)
+  const legal = legalActions(beforeRaise)
+  assert.equal(act(beforeRaise, 'raise', legal.minRaiseTo - 1), beforeRaise)
+  assert.equal(act(beforeRaise, 'raise', legal.maxRaiseTo + 1), beforeRaise)
+  assert.equal(act(beforeRaise, 'raise', legal.minRaiseTo + 0.5), beforeRaise)
+})
+
 test('a short all-in requires a response without reopening raise rights', () => {
   const base = createGame(seeded(40))
   const state: GameState = {

@@ -15,6 +15,7 @@ Play a fast, local-only six-max Texas Hold'em hand while DeepSeek Harness is thi
 - Six seats: one human and five local bots
 - Pre-flop, flop, turn, river, showdown
 - Fold, check, call, pot-sized raise, and all-in
+- Custom raise-to sizing with Min, 1/2-pot, 3/4-pot, Pot, Max, slider, and direct amount entry
 - 5M Token starting stacks with 25K/50K blinds
 - Seven-card hand evaluation and split pots
 - Side-pot settlement for unequal all-in contributions
@@ -28,7 +29,7 @@ Play a fast, local-only six-max Texas Hold'em hand while DeepSeek Harness is thi
 From the prebuilt GitHub Release:
 
 ```sh
-dsh plugin --profile web add https://github.com/leeclouddragon/dsh-all-in/releases/download/v0.1.0/dsh-all-in-0.1.0.tgz
+dsh plugin --profile web add https://github.com/leeclouddragon/dsh-all-in/releases/download/v0.1.1/dsh-all-in-0.1.1.tgz
 dsh --profile web
 ```
 

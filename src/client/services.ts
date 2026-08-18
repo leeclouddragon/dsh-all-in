@@ -25,7 +25,7 @@ export interface TableStore {
   open(): void
   close(): void
   toggle(): void
-  act(action: PlayerAction): void
+  act(action: PlayerAction, raiseTo?: number): void
   nextHand(): void
   reset(): void
 }
@@ -38,7 +38,7 @@ export interface TableFace {
   readonly useAllIn: SelectorHook<TableSnapshot>
   readonly openTable: () => void
   readonly closeTable: () => void
-  readonly act: (action: PlayerAction) => void
+  readonly act: (action: PlayerAction, raiseTo?: number) => void
   readonly nextHand: () => void
   readonly resetTable: () => void
 }

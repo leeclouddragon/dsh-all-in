@@ -1,6 +1,6 @@
 {
   "name": "dsh-all-in",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A local-only Texas Hold'em table for DeepSeek Harness — play while your agent thinks.",
   "type": "module",
   "main": "lib/index.js",

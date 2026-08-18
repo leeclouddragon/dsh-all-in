@@ -99,9 +99,9 @@ export function createTableStore(): TableStore {
     open: () => { publish({ ...snapshot, open: true }); scheduleAutomation() },
     close: () => { stopAutomation(); publish({ ...snapshot, open: false }) },
     toggle: () => { stopAutomation(); publish({ ...snapshot, open: !snapshot.open }); scheduleAutomation() },
-    act: (action: PlayerAction) => {
+    act: (action: PlayerAction, raiseTo?: number) => {
       stopAutomation()
-      publish({ ...snapshot, game: act(snapshot.game, action), thinkingSeat: null, thinkingRemainingMs: 0, thinkingDurationMs: 0 })
+      publish({ ...snapshot, game: act(snapshot.game, action, raiseTo), thinkingSeat: null, thinkingRemainingMs: 0, thinkingDurationMs: 0 })
       scheduleAutomation()
     },
     nextHand: () => { stopAutomation(); publish(idleSnapshot(createGame(Math.random, snapshot.game), snapshot.open)); scheduleAutomation() },
