@@ -46,7 +46,15 @@ export interface LegalActions {
 }
 
 const NAMES = ['You', 'Ada', 'Turing', 'Hopper', 'Linus', 'Satoshi'] as const
-const STARTING_STACK = 10_000
+export const STARTING_STACK = 5_000_000
+export const SMALL_BLIND = 25_000
+export const BIG_BLIND = 50_000
+
+export function formatTokenAmount(value: number): string {
+  if (value >= 1_000_000) return `${Number((value / 1_000_000).toFixed(2))}M`
+  if (value >= 1_000) return `${Number((value / 1_000).toFixed(1))}K`
+  return value.toLocaleString()
+}
 
 function replaceSeat(state: GameState, index: number, change: (seat: Seat) => Seat): GameState {
   const seats = [...state.seats]
@@ -115,9 +123,9 @@ function awardUncontested(state: GameState): GameState {
   if (active.length !== 1) return state
   const [index, winner] = active[0] as [number, Seat]
   const pot = potOf(state)
-  let next = replaceSeat(state, index, seat => ({ ...seat, stack: seat.stack + pot, result: `Won ${pot.toLocaleString()}` }))
+  let next = replaceSeat(state, index, seat => ({ ...seat, stack: seat.stack + pot, result: `Won ${formatTokenAmount(pot)}` }))
   next = { ...next, street: 'hand-over', currentBet: 0, actingSeat: null, pendingActors: [], winners: [winner.id], pot }
-  return addLog(next, `${winner.name} wins ${pot.toLocaleString()} uncontested`)
+  return addLog(next, `${winner.name} wins ${formatTokenAmount(pot)} uncontested`)
 }
 
 function settleShowdown(state: GameState): GameState {
@@ -151,7 +159,7 @@ function settleShowdown(state: GameState): GameState {
   for (const [index, amount] of won) {
     const seat = seats[index] as Seat
     const value = evaluateBest([...seat.hole, ...state.board])
-    seats[index] = { ...seat, stack: seat.stack + amount, result: `${value.label} · +${amount.toLocaleString()}` }
+    seats[index] = { ...seat, stack: seat.stack + amount, result: `${value.label} · +${formatTokenAmount(amount)}` }
   }
   const winnerIds = [...won.keys()].map(index => (seats[index] as Seat).id)
   const names = [...won.keys()].map(index => (seats[index] as Seat).name).join(' & ')
@@ -295,7 +303,7 @@ function actAt(state: GameState, index: number, action: PlayerAction): GameState
   } else if (action === 'call' && legal.canCall) {
     const amount = Math.min(legal.toCall, seat.stack)
     next = pay(next, index, legal.toCall)
-    next = addLog(next, `${seat.name} calls ${amount.toLocaleString()}${amount < legal.toCall ? ' all-in' : ''}`)
+    next = addLog(next, `${seat.name} calls ${formatTokenAmount(amount)}${amount < legal.toCall ? ' all-in' : ''}`)
   } else if (action === 'raise' && legal.canRaise) {
     const oldBet = next.currentBet
     const amount = Math.min(seat.stack, legal.raiseTo - seat.streetBet)
@@ -303,7 +311,7 @@ function actAt(state: GameState, index: number, action: PlayerAction): GameState
     const newBet = (next.seats[index] as Seat).streetBet
     const raiseSize = newBet - oldBet
     next = { ...next, currentBet: newBet, lastRaiseSize: raiseSize }
-    next = addLog(next, `${seat.name} raises to ${newBet.toLocaleString()}`)
+    next = addLog(next, `${seat.name} raises to ${formatTokenAmount(newBet)}`)
     fullRaise = true
     raisedBet = true
   } else if (action === 'all-in' && legal.canAllIn) {
@@ -316,7 +324,7 @@ function actAt(state: GameState, index: number, action: PlayerAction): GameState
       raisedBet = true
       next = { ...next, currentBet: newBet, lastRaiseSize: fullRaise ? raiseSize : next.lastRaiseSize }
     }
-    next = addLog(next, `${seat.name} moves all-in for ${seat.stack.toLocaleString()}`)
+    next = addLog(next, `${seat.name} moves all-in for ${formatTokenAmount(seat.stack)}`)
   } else {
     return state
   }
@@ -392,10 +400,10 @@ export function createGame(random: () => number = Math.random, previous?: GameSt
     board: [],
     deck,
     seats,
-    smallBlind: 50,
-    bigBlind: 100,
-    currentBet: 100,
-    lastRaiseSize: 100,
+    smallBlind: SMALL_BLIND,
+    bigBlind: BIG_BLIND,
+    currentBet: BIG_BLIND,
+    lastRaiseSize: BIG_BLIND,
     actingSeat: null,
     pendingActors: [],
     actedSinceFullRaise: [],
@@ -406,7 +414,7 @@ export function createGame(random: () => number = Math.random, previous?: GameSt
   }
   state = pay(state, smallBlindIndex, state.smallBlind)
   state = pay(state, bigBlindIndex, state.bigBlind)
-  state = addLog(state, `${state.seats[smallBlindIndex]?.name} posts ${state.smallBlind}; ${state.seats[bigBlindIndex]?.name} posts ${state.bigBlind}`)
+  state = addLog(state, `${state.seats[smallBlindIndex]?.name} posts ${formatTokenAmount(state.smallBlind)}; ${state.seats[bigBlindIndex]?.name} posts ${formatTokenAmount(state.bigBlind)}`)
   const actionable = actionableIndices(state)
   const loneActor = actionable.length === 1 ? state.seats[actionable[0] as number] : undefined
   const pending = loneActor !== undefined && loneActor.streetBet >= state.currentBet ? [] : actionable

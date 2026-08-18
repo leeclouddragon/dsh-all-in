@@ -4,16 +4,17 @@ Play a fast, local-only six-max Texas Hold'em hand while DeepSeek Harness is thi
 
 `dsh-all-in` adds an **All In** action to the Harness sidebar and opens a full-screen poker table through the supported `shell.overlay` slot. The active agent keeps running underneath it. The game never writes to the conversation, calls a model, or uses a network connection.
 
-> Entertainment only. Chips have no monetary value. There are no deposits, withdrawals, purchases, accounts, or multiplayer wagering.
+> Entertainment only. Tokens have no monetary value. There are no deposits, withdrawals, purchases, accounts, or multiplayer wagering.
 
 ## What works
 
 - Six seats: one human and five local bots
 - Pre-flop, flop, turn, river, showdown
 - Fold, check, call, pot-sized raise, and all-in
+- 5M Token starting stacks with 25K/50K blinds
 - Seven-card hand evaluation and split pots
 - Side-pot settlement for unequal all-in contributions
-- Persistent local bankroll across page reloads
+- Persistent local Token stacks across page reloads
 - Live **Agent thinking / Agent idle** status
 - English and Simplified Chinese UI
 - Responsive desktop and narrow-window layouts
@@ -30,7 +31,7 @@ dsh --profile web
 From a local checkout:
 
 ```sh
-git clone https://github.com/YOUR_NAME/dsh-all-in.git
+git clone https://github.com/leeclouddragon/dsh-all-in.git
 cd dsh-all-in
 pnpm install
 pnpm check

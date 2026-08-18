@@ -1,6 +1,6 @@
 import React from 'react'
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
-import { blindSeatIndices, legalActions, potOf, type PlayerAction, type Seat, type Street } from './game.ts'
+import { blindSeatIndices, formatTokenAmount, legalActions, potOf, type PlayerAction, type Seat, type Street } from './game.ts'
 import { cardText, isRed, type Card } from './poker.ts'
 import type { StandardProps, TableFace } from './services.ts'
 
@@ -87,14 +87,14 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
       {seat.streetBet > 0 ? (
         <div className="ai-bet">
           <span className="ai-chip-stack" aria-hidden><i /><i /><i /></span>
-          <span>{seat.streetBet.toLocaleString()}</span>
+          <span>{formatTokenAmount(seat.streetBet)}</span>
         </div>
       ) : null}
       <div className="ai-player">
         <span className="ai-avatar">{initials}</span>
         <span className="ai-player-meta">
           <span className="ai-player-name">{seat.name}</span>
-          <span className="ai-stack">{seat.stack.toLocaleString()} chips</span>
+          <span className="ai-stack">{formatTokenAmount(seat.stack)} Tokens</span>
         </span>
         {badges.length > 0 ? (
           <span className="ai-badges">{badges.map(badge => <span key={badge} className="ai-badge" data-role={badge}>{badge}</span>)}</span>
@@ -274,7 +274,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
       <div className="ai-shell">
         <header className="ai-topbar">
           <div className="ai-brand">
-            <span><div className="ai-title">No-Limit Hold’em — {game.smallBlind}/{game.bigBlind} chips — 6-max</div><div className="ai-subtitle">{props.t('playChips')}</div></span>
+            <span><div className="ai-title">No-Limit Hold’em — {formatTokenAmount(game.smallBlind)}/{formatTokenAmount(game.bigBlind)} Tokens — 6-max</div><div className="ai-subtitle">{props.t('playTokens')}</div></span>
           </div>
           <div className="ai-top-actions">
             <span className="ai-hand-number">Hand #{game.handNumber}</span>
@@ -290,7 +290,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               <div className="ai-table-logo"><FishLogo size={18} /><span>ALL IN · TABLE 01</span></div>
             </div>
             {dealing || boardDealing ? <div className="ai-deck" data-mode={dealing ? 'hole' : 'board'} aria-hidden><span><FishLogo size={18} /></span><span><FishLogo size={18} /></span></div> : null}
-            <div className="ai-pot"><div className="ai-pot-label">{props.t('pot')}</div><div className="ai-pot-value">{potOf(game).toLocaleString()}</div></div>
+            <div className="ai-pot"><div className="ai-pot-label">{props.t('pot')}</div><div className="ai-pot-value">{formatTokenAmount(potOf(game))}</div></div>
             <div className="ai-board">
               {[0, 1, 2, 3, 4].map(index => <PlayingCard
                 key={index}
@@ -340,13 +340,13 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               <>
                 <ActionButton action="fold" label={props.t('fold')} danger onAction={props.act} />
                 <ActionButton action="check" label={props.t('check')} disabled={!legal.canCheck} onAction={props.act} />
-                <ActionButton action="call" label={`${props.t('call')} ${legal.toCall.toLocaleString()}`} disabled={!legal.canCall} onAction={props.act} />
-                <ActionButton action="raise" label={`${props.t('raise')} ${legal.raiseTo.toLocaleString()}`} disabled={!legal.canRaise} primary onAction={props.act} />
+                <ActionButton action="call" label={`${props.t('call')} ${formatTokenAmount(legal.toCall)}`} disabled={!legal.canCall} onAction={props.act} />
+                <ActionButton action="raise" label={`${props.t('raise')} ${formatTokenAmount(legal.raiseTo)}`} disabled={!legal.canRaise} primary onAction={props.act} />
                 <ActionButton action="all-in" label={props.t('allIn')} disabled={!legal.canAllIn} danger onAction={props.act} />
               </>
             )}
           </div>
-          <div className="ai-hand-meta"><strong>{finished ? props.t('showdown') : props.t('waiting')}</strong>Hand #{game.handNumber} · {STREET_LABEL[game.street]} · {game.smallBlind}/{game.bigBlind}</div>
+          <div className="ai-hand-meta"><strong>{finished ? props.t('showdown') : props.t('waiting')}</strong>Hand #{game.handNumber} · {STREET_LABEL[game.street]} · {formatTokenAmount(game.smallBlind)}/{formatTokenAmount(game.bigBlind)} Tokens</div>
         </footer>
       </div>
     </section>

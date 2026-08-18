@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { act, advanceAutomatic, blindSeatIndices, createGame, legalActions, potOf, type GameState } from '../src/client/game.ts'
+import { act, advanceAutomatic, BIG_BLIND, blindSeatIndices, createGame, formatTokenAmount, legalActions, potOf, SMALL_BLIND, STARTING_STACK, type GameState } from '../src/client/game.ts'
 
 function seeded(seed = 1): () => number {
   let value = seed >>> 0
@@ -10,7 +10,7 @@ function seeded(seed = 1): () => number {
   }
 }
 
-function totalChips(state: GameState): number {
+function totalTokens(state: GameState): number {
   return state.seats.reduce((sum, seat) => sum + seat.stack, 0) + (state.street === 'hand-over' ? 0 : potOf(state))
 }
 
@@ -38,18 +38,23 @@ function playToEnd(state: GameState, random: () => number, limit = 500): GameSta
   return next
 }
 
+test('formats large Token amounts for the table HUD', () => {
+  assert.equal(formatTokenAmount(25_000), '25K')
+  assert.equal(formatTokenAmount(4_950_000), '4.95M')
+})
+
 test('deals six unique pairs, posts blinds, and starts UTG', () => {
   const game = createGame(seeded(7))
   assert.equal(game.dealer, 5)
   assert.equal(game.seats.length, 6)
   assert.equal(game.seats.flatMap(seat => seat.hole).length, 12)
   assert.equal(new Set(game.seats.flatMap(seat => seat.hole).map(card => `${card.rank}-${card.suit}`)).size, 12)
-  assert.equal(game.seats[0]?.streetBet, 50)
-  assert.equal(game.seats[1]?.streetBet, 100)
+  assert.equal(game.seats[0]?.streetBet, SMALL_BLIND)
+  assert.equal(game.seats[1]?.streetBet, BIG_BLIND)
   assert.deepEqual(blindSeatIndices(game), { smallBlindSeat: 0, bigBlindSeat: 1 })
   assert.equal(game.actingSeat, 2)
   assert.deepEqual(game.pendingActors, [0, 1, 2, 3, 4, 5])
-  assert.equal(potOf(game), 150)
+  assert.equal(potOf(game), SMALL_BLIND + BIG_BLIND)
 })
 
 test('one automatic step performs exactly one seat action', () => {
@@ -60,7 +65,7 @@ test('one automatic step performs exactly one seat action', () => {
   assert.equal(next.actingSeat, 3)
   assert.equal(next.street, 'preflop')
   assert.ok(next.logs.length >= game.logs.length)
-  assert.equal(totalChips(next), 60_000)
+  assert.equal(totalTokens(next), STARTING_STACK * 6)
 })
 
 test('a full raise reopens action for players who already acted', () => {
@@ -105,12 +110,12 @@ test('heads-up button posts the small blind and acts first preflop', () => {
     ...base,
     street: 'hand-over',
     dealer: 5,
-    seats: base.seats.map((seat, index) => ({ ...seat, stack: index < 2 ? 10_000 : 0 })),
+    seats: base.seats.map((seat, index) => ({ ...seat, stack: index < 2 ? STARTING_STACK : 0 })),
   }
   const headsUp = createGame(random, previous)
   assert.equal(headsUp.dealer, 0)
-  assert.equal(headsUp.seats[0]?.streetBet, 50)
-  assert.equal(headsUp.seats[1]?.streetBet, 100)
+  assert.equal(headsUp.seats[0]?.streetBet, SMALL_BLIND)
+  assert.equal(headsUp.seats[1]?.streetBet, BIG_BLIND)
   assert.deepEqual(blindSeatIndices(headsUp), { smallBlindSeat: 0, bigBlindSeat: 1 })
   assert.equal(headsUp.actingSeat, 0)
 
@@ -165,16 +170,16 @@ test('fold removes only the hero and bots continue seat by seat', () => {
   assert.notStrictEqual(oneBotLater, folded)
   const finished = playToEnd(oneBotLater, random)
   assert.equal(finished.board.length, 5)
-  assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), 60_000)
+  assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), STARTING_STACK * 6)
 })
 
-test('all-in runout and side-pot settlement conserve the bankroll', () => {
+test('all-in runout and side-pot settlement conserve the Token pool', () => {
   const random = seeded(2)
   const first = createGame(random)
   const shortPrevious: GameState = {
     ...first,
     street: 'hand-over',
-    seats: first.seats.map((seat, index) => ({ ...seat, stack: index === 0 ? 500 : 10_000 })),
+    seats: first.seats.map((seat, index) => ({ ...seat, stack: index === 0 ? 100_000 : STARTING_STACK })),
   }
   let game = createGame(random, shortPrevious)
   game = advanceUntilUser(game, random)
@@ -183,22 +188,22 @@ test('all-in runout and side-pot settlement conserve the bankroll', () => {
   const finished = playToEnd(game, random)
   assert.equal(finished.board.length, 5)
   assert.ok(finished.winners.length >= 1)
-  assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), 50_500)
+  assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), STARTING_STACK * 5 + 100_000)
 })
 
-test('a passive hand reaches showdown and conserves chips', () => {
+test('a passive hand reaches showdown and conserves Tokens', () => {
   const random = seeded(77)
   const finished = playToEnd(createGame(random), random)
   assert.equal(finished.board.length, 5)
   assert.ok(finished.winners.length >= 1)
-  assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), 60_000)
-  assert.equal(totalChips(finished), 60_000)
+  assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), STARTING_STACK * 6)
+  assert.equal(totalTokens(finished), STARTING_STACK * 6)
 })
 
-test('seeded action-state simulations terminate without creating chips', () => {
+test('seeded action-state simulations terminate without creating Tokens', () => {
   for (let seed = 1; seed <= 100; seed += 1) {
     const random = seeded(seed)
     const finished = playToEnd(createGame(random), random, 1_000)
-    assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), 60_000, `seed ${seed}`)
+    assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), STARTING_STACK * 6, `seed ${seed}`)
   }
 })

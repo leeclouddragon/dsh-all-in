@@ -1,7 +1,7 @@
 import { act, advanceAutomatic, createGame, type PlayerAction } from './game.ts'
 import type { TableSnapshot, TableStore } from './services.ts'
 
-const STORAGE_KEY = 'dsh-all-in/table-v2'
+const STORAGE_KEY = 'dsh-all-in/table-v3'
 
 function idleSnapshot(game: TableSnapshot['game'], open = false): TableSnapshot {
   return { open, game, thinkingSeat: null, thinkingRemainingMs: 0, thinkingDurationMs: 0 }
