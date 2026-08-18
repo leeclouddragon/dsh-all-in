@@ -42,6 +42,7 @@ await build({
   jsx: 'transform',
   jsxFactory: 'React.createElement',
   jsxFragment: 'React.Fragment',
+  loader: { '.png': 'dataurl' },
 })
 
 const source = await readFile(temporaryClient, 'utf8')

@@ -1,6 +1,6 @@
 import React from 'react'
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
-import { blindSeatIndices, formatTokenAmount, legalActions, potOf, type LegalActions, type PlayerAction, type Seat, type Street } from './game.ts'
+import { blindSeatIndices, formatTokenAmount, legalActions, potOf, STARTING_STACK, type LegalActions, type PlayerAction, type Seat, type Street } from './game.ts'
 import { cardText, isRed, type Card } from './poker.ts'
 import type { StandardProps, TableFace } from './services.ts'
 
@@ -53,6 +53,14 @@ type DealStyle = React.CSSProperties & { '--ai-deal-step'?: number }
 type PositionBadge = 'D' | 'SB' | 'BB'
 const HOLE_DEAL_INTERVAL_MS = 170
 const HOLE_DEAL_SETTLE_MS = 420
+const SEAT_CHARACTERS = [
+  { thought: 'Your move' },
+  { thought: 'Smells weakness' },
+  { thought: 'Reading the river' },
+  { thought: 'Cooking chaos' },
+  { thought: 'Rewriting the odds' },
+  { thought: 'Setting a trap' },
+] as const
 
 function PlayingCard({ card, hidden = false, empty = false, dealStep }: { card?: Card | undefined; hidden?: boolean; empty?: boolean; dealStep?: number | undefined }): React.ReactElement {
   const style: DealStyle | undefined = dealStep === undefined ? undefined : { '--ai-deal-step': dealStep }
@@ -66,7 +74,7 @@ function PlayingCard({ card, hidden = false, empty = false, dealStep }: { card?:
   )
 }
 
-function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, dealOrder, dealSeatCount, dealing, dealtCards, effect }: {
+function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, dealOrder, dealSeatCount, dealing, dealtCards, bigBlind, effect }: {
   seat: Seat
   position: number
   badges: readonly PositionBadge[]
@@ -79,9 +87,10 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
   dealSeatCount: number
   dealing: boolean
   dealtCards: number
+  bigBlind: number
   effect?: SeatEffect | undefined
 }): React.ReactElement {
-  const initials = seat.name === 'You' ? 'YOU' : seat.name.slice(0, 2).toUpperCase()
+  const character = SEAT_CHARACTERS[position] ?? { thought: thinkingLabel }
   const thinkingProgress = thinkingDurationMs <= 0 ? 0 : Math.max(0, Math.min(1, thinkingMs / thinkingDurationMs))
   return (
     <div className="ai-seat" data-pos={position} data-folded={String(seat.folded)} data-hero={String(!seat.bot)} data-acting={String(acting)} data-effect={effect?.kind}>
@@ -97,12 +106,15 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
       ) : null}
       {seat.streetBet > 0 ? (
         <div className="ai-bet">
-          <span className="ai-chip-stack" aria-hidden><i /><i /><i /></span>
-          <span>{formatTokenAmount(seat.streetBet)}</span>
+          <PotChips amount={seat.streetBet} bigBlind={bigBlind} minimumLevel={3} />
+          <span className="ai-bet-value">{formatTokenAmount(seat.streetBet)}</span>
         </div>
       ) : null}
+      <BankrollChips key={seat.stack} amount={seat.stack} />
       <div className="ai-player">
-        <span className="ai-avatar">{initials}</span>
+        <span className="ai-avatar" data-character={position} title={character.thought}>
+          {position === 0 ? <FishLogo size={18} /> : null}
+        </span>
         <span className="ai-player-meta">
           <span className="ai-player-name">{seat.name}</span>
           <span className="ai-stack">{formatTokenAmount(seat.stack)} Tokens</span>
@@ -113,7 +125,7 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
       </div>
       {thinkingMs > 0 ? (
         <div className="ai-thinking-chip">
-          <span className="ai-thinking-copy">{thinkingLabel} · {Math.max(1, Math.ceil(thinkingMs / 1000))}s</span>
+          <span className="ai-thinking-copy">{seat.bot ? character.thought : thinkingLabel} · {Math.max(1, Math.ceil(thinkingMs / 1000))}s</span>
           <span className="ai-thinking-track"><span style={{ transform: `scaleX(${thinkingProgress})` }} /></span>
         </div>
       ) : null}
@@ -138,7 +150,9 @@ function MuckedHand({ seat, position, entering, label }: { seat: Seat; position:
   )
 }
 
-function ChipStack({ tone, height }: { tone: 'blue' | 'ink' | 'red'; height: number }): React.ReactElement {
+type ChipTone = 'blue' | 'ink' | 'red' | 'gold'
+
+function ChipStack({ tone, height }: { tone: ChipTone; height: number }): React.ReactElement {
   return (
     <span className="ai-pot-chip-column" data-tone={tone}>
       {Array.from({ length: height }, (_, index) => <i key={index} />)}
@@ -146,8 +160,23 @@ function ChipStack({ tone, height }: { tone: 'blue' | 'ink' | 'red'; height: num
   )
 }
 
-function PotChips({ amount, bigBlind }: { amount: number; bigBlind: number }): React.ReactElement {
-  const level = Math.max(1, Math.min(6, Math.ceil(amount / Math.max(1, bigBlind * 3))))
+function BankrollChips({ amount }: { amount: number }): React.ReactElement | null {
+  if (amount <= 0) return null
+  const ratio = amount / STARTING_STACK
+  const columns = Math.max(1, Math.min(4, Math.ceil(ratio * 4)))
+  const peak = Math.max(2, Math.min(8, Math.ceil(ratio * 6)))
+  const tones: readonly ChipTone[] = ['blue', 'ink', 'red', 'gold']
+  return (
+    <span className="ai-bankroll" aria-hidden>
+      {Array.from({ length: columns }, (_, index) => (
+        <ChipStack key={tones[index]} tone={tones[index] as ChipTone} height={Math.max(2, peak - index)} />
+      ))}
+    </span>
+  )
+}
+
+function PotChips({ amount, bigBlind, minimumLevel = 1 }: { amount: number; bigBlind: number; minimumLevel?: number }): React.ReactElement {
+  const level = Math.max(minimumLevel, Math.min(6, Math.ceil(amount / Math.max(1, bigBlind * 3))))
   const stacks = Math.max(1, Math.min(3, Math.ceil(level / 2)))
   return (
     <span className="ai-pot-chips" aria-hidden>
@@ -424,6 +453,11 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
         <main className="ai-stage">
           <div className="ai-table-wrap" data-dealing={String(dealing)}>
             <div className="ai-table">
+              <div className="ai-felt-layout" aria-hidden>
+                <span className="ai-felt-center" />
+                <span className="ai-felt-orbit" />
+                {[0, 1, 2, 3, 4, 5].map(position => <i key={position} data-pos={position} />)}
+              </div>
               <div className="ai-table-logo"><FishLogo size={18} /><span>ALL IN · TABLE 01</span></div>
             </div>
             {dealing || boardDealing ? <div className="ai-deck" data-mode={dealing ? 'hole' : 'board'} aria-hidden><span><FishLogo size={18} /></span><span><FishLogo size={18} /></span></div> : null}
@@ -468,6 +502,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               dealSeatCount={dealSeats.length}
               dealing={dealing}
               dealtCards={dealtCards}
+              bigBlind={game.bigBlind}
               effect={seatEffect?.seat === index ? seatEffect : undefined}
             />)}
             {game.seats.map((seat, index) => seat.folded && seat.hole.length > 0 ? <MuckedHand

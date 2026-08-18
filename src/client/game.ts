@@ -47,7 +47,7 @@ export interface LegalActions {
   readonly canAllIn: boolean
 }
 
-const NAMES = ['You', 'Ada', 'Turing', 'Hopper', 'Linus', 'Satoshi'] as const
+const NAMES = ['You', 'Shark', 'Oracle', 'Mochi', 'Glitch', 'Ghost'] as const
 export const STARTING_STACK = 5_000_000
 export const SMALL_BLIND = 25_000
 export const BIG_BLIND = 50_000
@@ -338,20 +338,31 @@ function actAt(state: GameState, index: number, action: PlayerAction, requestedR
   return resolveAfterAction(next, index, fullRaise, raisedBet)
 }
 
+const BOT_PROFILES = [
+  { aggression: 0, looseness: 0, bluff: 0 },
+  { aggression: 0.14, looseness: 0.06, bluff: 0.08 },
+  { aggression: -0.04, looseness: -0.07, bluff: 0.01 },
+  { aggression: 0.04, looseness: 0.13, bluff: 0.05 },
+  { aggression: 0.02, looseness: 0.01, bluff: 0.025 },
+  { aggression: -0.02, looseness: -0.03, bluff: 0.09 },
+] as const
+
 function chooseBotAction(state: GameState, index: number, random: () => number): PlayerAction {
   const seat = state.seats[index] as Seat
   const legal = legalActionsFor(state, index)
   const strength = botStrength(state, seat)
   const potOdds = legal.toCall / Math.max(1, potOf(state) + legal.toCall)
+  const profile = BOT_PROFILES[index] ?? BOT_PROFILES[0]
+  const pressure = strength + profile.aggression
 
   if (legal.canCheck) {
-    if (legal.canAllIn && strength > 0.92 && random() < 0.12) return 'all-in'
-    if (legal.canRaise && strength + random() * 0.22 > 0.83) return 'raise'
+    if (legal.canAllIn && pressure > 0.92 && random() < 0.12 + Math.max(0, profile.aggression)) return 'all-in'
+    if (legal.canRaise && (pressure + random() * 0.22 > 0.83 || random() < profile.bluff)) return 'raise'
     return 'check'
   }
-  if (strength + random() * 0.34 < potOdds + 0.22) return 'fold'
-  if (legal.canAllIn && strength > 0.9 && random() < 0.2) return 'all-in'
-  if (legal.canRaise && strength + random() * 0.18 > 0.9) return 'raise'
+  if (strength + profile.looseness + random() * 0.34 < potOdds + 0.22) return 'fold'
+  if (legal.canAllIn && pressure > 0.9 && random() < 0.2 + Math.max(0, profile.aggression)) return 'all-in'
+  if (legal.canRaise && (pressure + random() * 0.18 > 0.9 || random() < profile.bluff * Math.max(0.25, 1 - potOdds))) return 'raise'
   return 'call'
 }
 
