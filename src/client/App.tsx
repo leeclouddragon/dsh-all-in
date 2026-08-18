@@ -101,11 +101,8 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
           return <PlayingCard key={`${card.rank}-${card.suit}`} card={card} hidden={seat.bot && !reveal} dealStep={dealing ? 0 : undefined} />
         })}
       </div>
-      {effect?.kind === 'chips' ? (
-        <span key={effect.id} className="ai-chip-flight" aria-hidden><i /><i /><i /></span>
-      ) : null}
       {seat.streetBet > 0 ? (
-        <div className="ai-bet">
+        <div key={effect?.kind === 'chips' ? effect.id : undefined} className="ai-bet">
           <PotChips amount={seat.streetBet} bigBlind={bigBlind} minimumLevel={3} />
           <span className="ai-bet-value">{formatTokenAmount(seat.streetBet)}</span>
         </div>
@@ -163,8 +160,8 @@ function ChipStack({ tone, height }: { tone: ChipTone; height: number }): React.
 function BankrollChips({ amount }: { amount: number }): React.ReactElement | null {
   if (amount <= 0) return null
   const ratio = amount / STARTING_STACK
-  const columns = Math.max(1, Math.min(4, Math.ceil(ratio * 4)))
-  const peak = Math.max(2, Math.min(8, Math.ceil(ratio * 6)))
+  const columns = Math.max(2, Math.min(4, Math.ceil(ratio * 4)))
+  const peak = Math.max(3, Math.min(8, Math.ceil(ratio * 6)))
   const tones: readonly ChipTone[] = ['blue', 'ink', 'red', 'gold']
   return (
     <span className="ai-bankroll" aria-hidden>
