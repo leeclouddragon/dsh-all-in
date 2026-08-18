@@ -112,11 +112,15 @@ body[data-ds-dark-theme] .ai-table {
 }
 .ai-table-logo {
   position: absolute; z-index: 2; left: 50%; top: 72%; transform: translate(-50%,-50%);
-  display: flex; align-items: center; gap: 7px; color: var(--dsw-alias-label-caption);
-  opacity: .2; white-space: nowrap; letter-spacing: .14em;
-  font: 600 8px/1 var(--dsw-font-family); pointer-events: none;
+  display: flex; align-items: center; gap: 8px; color: var(--dsw-alias-label-secondary);
+  opacity: .64; white-space: nowrap; letter-spacing: .16em;
+  font: 700 9px/1 var(--dsw-font-family); pointer-events: none;
 }
-.ai-table-logo svg { width: 18px; height: 18px; }
+.ai-table-logo::before, .ai-table-logo::after {
+  content: ''; width: 16px; height: 1px; background: currentColor; opacity: .58;
+}
+.ai-table-logo svg { width: 16px; height: 16px; }
+body[data-ds-dark-theme] .ai-table-logo { opacity: .52; }
 .ai-pot {
   position: absolute; left: 50%; top: calc(50% - var(--ai-pot-offset)); transform: translate(-50%,-50%);
   display: flex; align-items: baseline; gap: 5px; padding: 4px 9px; text-align: center;
