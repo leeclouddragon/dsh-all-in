@@ -76,7 +76,7 @@ body[data-ds-dark-theme] .ai-overlay {
   --ai-seat-side-y: min(22cqh, 15cqw);
   --ai-seat-anchor-offset: 22px;
   --ai-pot-offset: min(8cqh, 5cqw);
-  --ai-board-offset: min(5cqh, 3cqw);
+  --ai-board-offset: 0px;
   position: relative; width: 94cqw; height: 96cqh; min-height: 400px;
 }
 .ai-table {
@@ -205,7 +205,7 @@ body[data-ds-dark-theme] .ai-table {
   position: absolute; z-index: 5; width: 76px; height: 58px; transform: translate(-50%,-50%);
   pointer-events: none;
 }
-.ai-mucked-hand[data-pos="0"] { left: 50%; top: 60%; --ai-muck-from-x: 0cqw; --ai-muck-from-y: 6cqh; }
+.ai-mucked-hand[data-pos="0"] { left: 50%; top: 64%; --ai-muck-from-x: 0cqw; --ai-muck-from-y: 2cqh; }
 .ai-mucked-hand[data-pos="1"] { left: 33%; top: 60%; --ai-muck-from-x: -12cqw; --ai-muck-from-y: -1cqh; }
 .ai-mucked-hand[data-pos="2"] { left: 34%; top: 43%; --ai-muck-from-x: -13cqw; --ai-muck-from-y: -13cqh; }
 .ai-mucked-hand[data-pos="3"] { left: 49%; top: 39%; --ai-muck-from-x: 1cqw; --ai-muck-from-y: -14cqh; }
