@@ -205,7 +205,7 @@ body[data-ds-dark-theme] .ai-table {
   position: absolute; z-index: 5; width: 76px; height: 58px; transform: translate(-50%,-50%);
   pointer-events: none;
 }
-.ai-mucked-hand[data-pos="0"] { left: 42%; top: 64%; --ai-muck-from-x: 8cqw; --ai-muck-from-y: 2cqh; }
+.ai-mucked-hand[data-pos="0"] { left: 50%; top: 64%; --ai-muck-from-x: 0cqw; --ai-muck-from-y: 2cqh; }
 .ai-mucked-hand[data-pos="1"] { left: 33%; top: 60%; --ai-muck-from-x: -12cqw; --ai-muck-from-y: -1cqh; }
 .ai-mucked-hand[data-pos="2"] { left: 34%; top: 43%; --ai-muck-from-x: -13cqw; --ai-muck-from-y: -13cqh; }
 .ai-mucked-hand[data-pos="3"] { left: 49%; top: 39%; --ai-muck-from-x: 1cqw; --ai-muck-from-y: -14cqh; }
