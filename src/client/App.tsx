@@ -21,6 +21,11 @@ interface SeatEffect {
   readonly kind: 'chips' | 'fold'
 }
 
+interface PotCollection {
+  readonly id: number
+  readonly bets: ReadonlyArray<{ readonly seat: number; readonly amount: number }>
+}
+
 function currentRunning(props: StandardProps): boolean {
   return props.useSessions(state => state.current === undefined ? false : state.byId[state.current]?.running === true)
 }
@@ -133,6 +138,26 @@ function MuckedHand({ seat, position, entering, label }: { seat: Seat; position:
   )
 }
 
+function ChipStack({ tone, height }: { tone: 'blue' | 'ink' | 'red'; height: number }): React.ReactElement {
+  return (
+    <span className="ai-pot-chip-column" data-tone={tone}>
+      {Array.from({ length: height }, (_, index) => <i key={index} />)}
+    </span>
+  )
+}
+
+function PotChips({ amount, bigBlind }: { amount: number; bigBlind: number }): React.ReactElement {
+  const level = Math.max(1, Math.min(6, Math.ceil(amount / Math.max(1, bigBlind * 3))))
+  const stacks = Math.max(1, Math.min(3, Math.ceil(level / 2)))
+  return (
+    <span className="ai-pot-chips" aria-hidden>
+      <ChipStack tone="blue" height={Math.min(6, level + 1)} />
+      {stacks >= 2 ? <ChipStack tone="ink" height={Math.max(3, level - 1)} /> : null}
+      {stacks >= 3 ? <ChipStack tone="red" height={Math.max(2, level - 2)} /> : null}
+    </span>
+  )
+}
+
 const STREET_LABEL: Record<Street, string> = {
   preflop: 'Pre-flop', flop: 'Flop', turn: 'Turn', river: 'River', 'hand-over': 'Showdown',
 }
@@ -157,9 +182,13 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const overlayRef = React.useRef<HTMLElement | null>(null)
   const previousGameRef = React.useRef(game)
   const previousBoardCountRef = React.useRef(game.board.length)
+  const previousPotGameRef = React.useRef(game)
   const effectIdRef = React.useRef(0)
+  const potCollectionIdRef = React.useRef(0)
+  const potCollectionTimerRef = React.useRef<number | undefined>()
   const dealtHandRef = React.useRef<string | undefined>()
   const [seatEffect, setSeatEffect] = React.useState<SeatEffect | undefined>()
+  const [potCollection, setPotCollection] = React.useState<PotCollection | undefined>()
   const [dealing, setDealing] = React.useState(false)
   const [dealtCards, setDealtCards] = React.useState(0)
   const [boardDealing, setBoardDealing] = React.useState(false)
@@ -229,6 +258,26 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
     }, nextEffect.kind === 'fold' ? 820 : 920)
     return () => { window.clearTimeout(timer) }
   }, [game])
+
+  React.useLayoutEffect(() => {
+    const previous = previousPotGameRef.current
+    previousPotGameRef.current = game
+    if (previous === game || previous.handNumber !== game.handNumber || previous.street === game.street) return
+    const bets = previous.seats.flatMap((seat, index) => seat.streetBet > 0 ? [{ seat: index, amount: seat.streetBet }] : [])
+    if (bets.length === 0) return
+    potCollectionIdRef.current += 1
+    const collection = { id: potCollectionIdRef.current, bets }
+    setPotCollection(collection)
+    if (potCollectionTimerRef.current !== undefined) window.clearTimeout(potCollectionTimerRef.current)
+    potCollectionTimerRef.current = window.setTimeout(() => {
+      setPotCollection(current => current?.id === collection.id ? undefined : current)
+      potCollectionTimerRef.current = undefined
+    }, 1_050)
+  }, [game])
+
+  React.useEffect(() => () => {
+    if (potCollectionTimerRef.current !== undefined) window.clearTimeout(potCollectionTimerRef.current)
+  }, [])
 
   React.useLayoutEffect(() => {
     if (!snapshot.open) return undefined
@@ -307,7 +356,21 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               <div className="ai-table-logo"><FishLogo size={18} /><span>ALL IN · TABLE 01</span></div>
             </div>
             {dealing || boardDealing ? <div className="ai-deck" data-mode={dealing ? 'hole' : 'board'} aria-hidden><span><FishLogo size={18} /></span><span><FishLogo size={18} /></span></div> : null}
-            <div className="ai-pot"><div className="ai-pot-label">{props.t('pot')}</div><div className="ai-pot-value">{formatTokenAmount(potOf(game))}</div></div>
+            {potCollection?.bets.map((bet, index) => (
+              <span
+                key={`${potCollection.id}-${bet.seat}`}
+                className="ai-pot-collect"
+                data-pos={bet.seat}
+                style={{ animationDelay: `${index * 45}ms` }}
+                aria-hidden
+              >
+                <span className="ai-chip-stack"><i /><i /><i /></span>
+              </span>
+            ))}
+            <div className="ai-pot" data-collecting={potCollection === undefined ? undefined : 'true'}>
+              <PotChips amount={potOf(game)} bigBlind={game.bigBlind} />
+              <div className="ai-pot-copy"><span className="ai-pot-label">{props.t('pot')}</span><span className="ai-pot-value">{formatTokenAmount(potOf(game))}</span></div>
+            </div>
             <div className="ai-board">
               {[0, 1, 2, 3, 4].map(index => <PlayingCard
                 key={index}

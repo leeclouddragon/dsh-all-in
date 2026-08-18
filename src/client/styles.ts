@@ -123,11 +123,60 @@ body[data-ds-dark-theme] .ai-table {
 body[data-ds-dark-theme] .ai-table-logo { opacity: .52; }
 .ai-pot {
   position: absolute; left: 50%; top: calc(50% - var(--ai-pot-offset)); transform: translate(-50%,-50%);
-  display: flex; align-items: baseline; gap: 5px; padding: 4px 9px; text-align: center;
+  z-index: 6; display: flex; align-items: flex-end; gap: 7px; text-align: center;
+}
+.ai-pot-copy {
+  display: flex; align-items: baseline; gap: 5px; padding: 4px 9px;
   border: 1px solid var(--dsw-alias-border-l1); border-radius: 11px; background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 4px 11px rgba(38,49,72,.08);
 }
 .ai-pot-label { color: var(--dsw-alias-label-tertiary); font-size: 9px; line-height: 13px; }
 .ai-pot-value { color: var(--dsw-alias-label-primary); font: 600 11px/1.2 var(--ds-font-family-code); }
+.ai-pot-chips {
+  position: relative; display: flex; align-items: flex-end; gap: 1px; width: 47px; height: 28px;
+  filter: drop-shadow(0 5px 5px rgba(24,35,63,.17));
+}
+.ai-pot-chip-column { position: relative; display: block; width: 15px; height: 100%; }
+.ai-pot-chip-column i {
+  --ai-pot-chip: var(--ai-blue);
+  position: absolute; left: 0; bottom: calc((var(--ai-chip-level, 0)) * 4px); width: 15px; height: 6px;
+  box-sizing: border-box; border: 1px solid rgba(12,20,38,.3); border-radius: 50%;
+  background: linear-gradient(90deg, var(--ai-pot-chip) 0 20%, #fff 20% 30%, var(--ai-pot-chip) 30% 68%, #fff 68% 78%, var(--ai-pot-chip) 78%);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.16), 0 1px 1px rgba(18,29,55,.18);
+}
+.ai-pot-chip-column[data-tone="ink"] i { --ai-pot-chip: #333c4f; }
+.ai-pot-chip-column[data-tone="red"] i { --ai-pot-chip: #d95c62; }
+.ai-pot-chip-column i:nth-child(1) { --ai-chip-level: 0; }
+.ai-pot-chip-column i:nth-child(2) { --ai-chip-level: 1; }
+.ai-pot-chip-column i:nth-child(3) { --ai-chip-level: 2; }
+.ai-pot-chip-column i:nth-child(4) { --ai-chip-level: 3; }
+.ai-pot-chip-column i:nth-child(5) { --ai-chip-level: 4; }
+.ai-pot-chip-column i:nth-child(6) { --ai-chip-level: 5; }
+.ai-pot[data-collecting="true"] .ai-pot-chips { animation: ai-pot-receive 680ms cubic-bezier(.16,.78,.22,1) 420ms both; }
+@keyframes ai-pot-receive {
+  0% { transform: scale(.88); filter: drop-shadow(0 2px 2px rgba(24,35,63,.1)); }
+  58% { transform: translateY(-3px) scale(1.1); }
+  100% { transform: scale(1); filter: drop-shadow(0 5px 5px rgba(24,35,63,.17)); }
+}
+.ai-pot-collect {
+  --ai-collect-x: 0px; --ai-collect-y: 0px;
+  position: absolute; z-index: 9; left: 50%; top: calc(50% - var(--ai-pot-offset)); width: 18px; height: 16px;
+  transform: translate(calc(-50% + var(--ai-collect-x)),calc(-50% + var(--ai-collect-y)));
+  pointer-events: none; animation: ai-pot-collect 820ms cubic-bezier(.2,.78,.2,1) both;
+}
+.ai-pot-collect[data-pos="0"] { --ai-collect-y: calc(var(--ai-table-half-height) - 64px + var(--ai-pot-offset)); }
+.ai-pot-collect[data-pos="1"] { --ai-collect-x: -20cqw; --ai-collect-y: calc(var(--ai-seat-side-y) - 34px + var(--ai-pot-offset)); }
+.ai-pot-collect[data-pos="2"] { --ai-collect-x: -20cqw; --ai-collect-y: calc(0px - var(--ai-seat-side-y) + 34px + var(--ai-pot-offset)); }
+.ai-pot-collect[data-pos="3"] { --ai-collect-y: calc(0px - var(--ai-table-half-height) + 72px + var(--ai-pot-offset)); }
+.ai-pot-collect[data-pos="4"] { --ai-collect-x: 20cqw; --ai-collect-y: calc(0px - var(--ai-seat-side-y) + 34px + var(--ai-pot-offset)); }
+.ai-pot-collect[data-pos="5"] { --ai-collect-x: 20cqw; --ai-collect-y: calc(var(--ai-seat-side-y) - 34px + var(--ai-pot-offset)); }
+.ai-pot-collect .ai-chip-stack { display: block; transform: scale(1.12); }
+@keyframes ai-pot-collect {
+  0% { opacity: 1; transform: translate(calc(-50% + var(--ai-collect-x)),calc(-50% + var(--ai-collect-y))) scale(1); }
+  68% { opacity: 1; transform: translate(-50%,calc(-50% - 8px)) scale(1.08); }
+  88% { opacity: 1; transform: translate(-50%,calc(-50% - 3px)) scale(.9); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(.72); }
+}
 .ai-board { position: absolute; left: 50%; top: calc(50% + var(--ai-board-offset)); transform: translate(-50%,-50%); display: flex; gap: 6px; }
 .ai-card {
   width: clamp(38px, 3.7vw, 52px); aspect-ratio: .71; border-radius: 7px;
@@ -409,7 +458,8 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 
 @media (prefers-reduced-motion: reduce) {
   .ai-status-dot, .ai-seat, .ai-seat[data-acting="true"] .ai-player, .ai-card, .ai-bet, .ai-deck { animation: none; transition: none; }
-  .ai-chip-flight { display: none; }
+  .ai-chip-flight, .ai-pot-collect { display: none; }
+  .ai-pot[data-collecting="true"] .ai-pot-chips { animation: none; }
   .ai-mucked-hand[data-entering="true"] .ai-card { animation: none; }
 }
 `
