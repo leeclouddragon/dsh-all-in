@@ -1,4 +1,4 @@
-import type { GameState, PlayerAction } from './game.ts'
+import type { BotDifficulty, GameState, PlayerAction } from './game.ts'
 
 export interface SessionSummary {
   readonly running: boolean
@@ -13,6 +13,7 @@ export type SelectorHook<T> = <Selected>(selector: (state: T) => Selected) => Se
 
 export interface TableSnapshot {
   readonly open: boolean
+  readonly difficulty: BotDifficulty
   readonly game: GameState
   readonly thinkingSeat: number | null
   readonly thinkingRemainingMs: number
@@ -28,6 +29,7 @@ export interface TableStore {
   act(action: PlayerAction, raiseTo?: number): void
   nextHand(): void
   reset(): void
+  setDifficulty(difficulty: BotDifficulty): void
 }
 
 export interface StandardProps {
@@ -41,6 +43,7 @@ export interface TableFace {
   readonly act: (action: PlayerAction, raiseTo?: number) => void
   readonly nextHand: () => void
   readonly resetTable: () => void
+  readonly setDifficulty: (difficulty: BotDifficulty) => void
 }
 
 export interface SlotsFace {

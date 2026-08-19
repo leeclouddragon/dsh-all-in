@@ -2,6 +2,7 @@ import { compareValues, createDeck, evaluateBest, shuffle, type Card, type HandV
 
 export type Street = 'preflop' | 'flop' | 'turn' | 'river' | 'hand-over'
 export type PlayerAction = 'fold' | 'check' | 'call' | 'raise' | 'all-in'
+export type BotDifficulty = 'casual' | 'standard' | 'expert'
 
 export interface Seat {
   readonly id: string
@@ -386,6 +387,33 @@ const BOT_PROFILES = [
   { aggression: -0.02, looseness: -0.03, bluff: 0.09 },
 ] as const
 
+const BOT_DIFFICULTIES = {
+  casual: {
+    samples: [24, 32, 40],
+    equityNoise: 0.13,
+    foldSlack: 0.085,
+    positionWeight: 0.3,
+    bluffWeight: 1.35,
+    raiseThreshold: 0.035,
+  },
+  standard: {
+    samples: [56, 72, 84],
+    equityNoise: 0.025,
+    foldSlack: 0.025,
+    positionWeight: 1,
+    bluffWeight: 1,
+    raiseThreshold: 0,
+  },
+  expert: {
+    samples: [144, 192, 256],
+    equityNoise: 0.008,
+    foldSlack: 0.005,
+    positionWeight: 1.15,
+    bluffWeight: 0.9,
+    raiseThreshold: -0.018,
+  },
+} as const
+
 interface BotDecision {
   readonly action: PlayerAction
   readonly raiseTo?: number
@@ -413,15 +441,17 @@ function botRaiseTarget(state: GameState, legal: LegalActions, equity: number): 
   return Math.max(legal.minRaiseTo, Math.min(legal.maxRaiseTo, state.currentBet + increment))
 }
 
-function chooseBotDecision(state: GameState, index: number, random: () => number): BotDecision {
+function chooseBotDecision(state: GameState, index: number, random: () => number, difficulty: BotDifficulty): BotDecision {
   const seat = state.seats[index] as Seat
   const legal = legalActionsFor(state, index)
   const opponentCount = state.seats.filter((candidate, candidateIndex) => candidateIndex !== index && !candidate.folded).length
-  const samples = state.board.length === 0 ? 56 : state.board.length === 3 ? 72 : 84
-  const equity = estimateEquity(seat.hole, state.board, opponentCount, random, samples)
+  const level = BOT_DIFFICULTIES[difficulty]
+  const sampleIndex = state.board.length === 0 ? 0 : state.board.length === 3 ? 1 : 2
+  const equityEstimate = estimateEquity(seat.hole, state.board, opponentCount, random, level.samples[sampleIndex])
+  const equity = clamp(equityEstimate + (random() * 2 - 1) * level.equityNoise)
   const potOdds = legal.toCall / Math.max(1, potOf(state) + legal.toCall)
   const profile = BOT_PROFILES[index] ?? BOT_PROFILES[0]
-  const adjustedEquity = clamp(equity + profile.looseness * 0.06 + botPositionEdge(state, index))
+  const adjustedEquity = clamp(equity + profile.looseness * 0.06 + botPositionEdge(state, index) * level.positionWeight)
   const fairShare = 1 / Math.max(1, opponentCount + 1)
   const valueEdge = adjustedEquity - fairShare
   const callEdge = adjustedEquity - potOdds
@@ -435,18 +465,18 @@ function chooseBotDecision(state: GameState, index: number, random: () => number
     if (canShove && adjustedEquity > Math.max(0.62, fairShare + 0.24) && random() < 0.45 + Math.max(0, profile.aggression)) {
       return { action: 'all-in' }
     }
-    const openBetChance = clamp(0.06 + Math.max(0, valueEdge) * 1.15 + Math.max(0, profile.aggression) * 0.75 + profile.bluff + botPositionEdge(state, index), 0.04, 0.78)
+    const openBetChance = clamp(0.06 + Math.max(0, valueEdge) * 1.15 + Math.max(0, profile.aggression) * 0.75 + profile.bluff * level.bluffWeight + botPositionEdge(state, index) * level.positionWeight, 0.04, 0.78)
     if (legal.canRaise && canEscalate && random() < openBetChance) return raise()
     return { action: 'check' }
   }
-  const bluffRaise = legal.canRaise && canEscalate && adjustedEquity < potOdds && random() < profile.bluff * clamp(1 - potOdds, 0.15, 0.8)
-  if (adjustedEquity < Math.max(0.05, potOdds - 0.025) && !bluffRaise) return { action: 'fold' }
+  const bluffRaise = legal.canRaise && canEscalate && adjustedEquity < potOdds && random() < profile.bluff * level.bluffWeight * clamp(1 - potOdds, 0.15, 0.8)
+  if (adjustedEquity < Math.max(0.05, potOdds - level.foldSlack) && !bluffRaise) return { action: 'fold' }
   if (bluffRaise) return raise()
   if (canShove && adjustedEquity > Math.max(0.58, potOdds + 0.18) && random() < 0.38 + Math.max(0, profile.aggression)) {
     return { action: 'all-in' }
   }
   const raiseChance = clamp(0.18 + Math.max(0, callEdge) * 0.9 + Math.max(0, profile.aggression), 0.12, 0.72)
-  if (legal.canRaise && canEscalate && callEdge > 0.13 + raises * 0.035 && random() < raiseChance) return raise()
+  if (legal.canRaise && canEscalate && callEdge > 0.13 + raises * 0.035 + level.raiseThreshold && random() < raiseChance) return raise()
   return { action: 'call' }
 }
 
@@ -463,12 +493,16 @@ export function act(state: GameState, action: PlayerAction, raiseTo?: number): G
 }
 
 /** Advance exactly one bot decision or one all-in board runout street. */
-export function advanceAutomatic(state: GameState, random: () => number = Math.random): GameState {
+export function advanceAutomatic(
+  state: GameState,
+  random: () => number = Math.random,
+  difficulty: BotDifficulty = 'standard',
+): GameState {
   if (state.street === 'hand-over') return state
   if (state.actingSeat === null) return withPot(finishStreet(state))
   const actor = state.seats[state.actingSeat]
   if (actor === undefined || !actor.bot) return state
-  const decision = chooseBotDecision(state, state.actingSeat, random)
+  const decision = chooseBotDecision(state, state.actingSeat, random, difficulty)
   return actAt(state, state.actingSeat, decision.action, decision.raiseTo)
 }
 

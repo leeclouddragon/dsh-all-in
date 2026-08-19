@@ -1,6 +1,6 @@
 import React from 'react'
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
-import { blindSeatIndices, formatTokenAmount, legalActions, potOf, STARTING_STACK, type LegalActions, type PlayerAction, type Seat, type Street } from './game.ts'
+import { blindSeatIndices, formatTokenAmount, legalActions, potOf, STARTING_STACK, type BotDifficulty, type LegalActions, type PlayerAction, type Seat, type Street } from './game.ts'
 import { cardText, isRed, type Card } from './poker.ts'
 import type { StandardProps, TableFace } from './services.ts'
 
@@ -53,6 +53,7 @@ type DealStyle = React.CSSProperties & { '--ai-deal-step'?: number }
 type PositionBadge = 'D' | 'SB' | 'BB'
 const HOLE_DEAL_INTERVAL_MS = 170
 const HOLE_DEAL_SETTLE_MS = 420
+const DIFFICULTY_OPTIONS: readonly BotDifficulty[] = ['casual', 'standard', 'expert']
 const SEAT_CHARACTERS = [
   { thought: 'Your move' },
   { thought: 'Smells weakness' },
@@ -286,6 +287,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const [boardDealing, setBoardDealing] = React.useState(false)
   const [boardDealFrom, setBoardDealFrom] = React.useState(game.board.length)
   const [raiseTo, setRaiseTo] = React.useState(legal.raiseTo)
+  const [settingsOpen, setSettingsOpen] = React.useState(false)
 
   React.useEffect(() => {
     setRaiseTo(legal.raiseTo)
@@ -401,11 +403,15 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
       if (event.key !== 'Escape') return
       event.preventDefault()
       event.stopPropagation()
+      if (settingsOpen) {
+        setSettingsOpen(false)
+        return
+      }
       props.closeTable()
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => { window.removeEventListener('keydown', onKeyDown, true) }
-  }, [snapshot.open, props.closeTable])
+  }, [snapshot.open, props.closeTable, settingsOpen])
 
   if (!snapshot.open) return null
   const finished = game.street === 'hand-over'
@@ -442,10 +448,42 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
           <div className="ai-top-actions">
             <span className="ai-hand-number">Hand #{game.handNumber}</span>
             <div className="ai-status" data-running={String(running)}><span className="ai-status-dot" />{running ? props.t('agentRunning') : props.t('agentIdle')}</div>
-            <button type="button" className="ai-ghost" aria-label={props.t('reset')} title={props.t('reset')} onClick={props.resetTable}>↻</button>
+            <button
+              type="button"
+              className="ai-ghost ai-settings-trigger"
+              data-active={String(settingsOpen)}
+              aria-label={props.t('opponentSettings')}
+              title={props.t('opponentSettings')}
+              aria-expanded={settingsOpen}
+              onClick={() => { setSettingsOpen(open => !open) }}
+            >
+              <span className="ai-settings-icon" aria-hidden><i /><i /><i /></span>
+            </button>
+            <button type="button" className="ai-ghost ai-reset" aria-label={props.t('reset')} title={props.t('reset')} onClick={props.resetTable}>↻</button>
             <button type="button" className="ai-close" onClick={props.closeTable}>{props.t('close')}</button>
           </div>
         </header>
+
+        {settingsOpen ? <div className="ai-settings-panel" role="group" aria-label={props.t('opponentSettings')}>
+          <div className="ai-settings-heading">
+            <div><strong>{props.t('opponentLevel')}</strong><span>{props.t('opponentLevelHint')}</span></div>
+            <button type="button" aria-label={props.t('closeSettings')} onClick={() => { setSettingsOpen(false) }}>×</button>
+          </div>
+          <div className="ai-difficulty-options">
+            {DIFFICULTY_OPTIONS.map(difficulty => <button
+              type="button"
+              key={difficulty}
+              data-active={String(snapshot.difficulty === difficulty)}
+              aria-pressed={snapshot.difficulty === difficulty}
+              onClick={() => { props.setDifficulty(difficulty) }}
+            >
+              <span className="ai-difficulty-level" aria-hidden>{difficulty === 'casual' ? 'I' : difficulty === 'standard' ? 'II' : 'III'}</span>
+              <span><strong>{props.t(`difficulty.${difficulty}`)}</strong><small>{props.t(`difficulty.${difficulty}.description`)}</small></span>
+              <i aria-hidden />
+            </button>)}
+          </div>
+          <p>{props.t('difficultyAppliesNow')}</p>
+        </div> : null}
 
         <main className="ai-stage">
           <div className="ai-table-wrap" data-dealing={String(dealing)}>

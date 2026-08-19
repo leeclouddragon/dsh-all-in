@@ -1,10 +1,14 @@
-import { act, advanceAutomatic, createGame, type PlayerAction } from './game.ts'
+import { act, advanceAutomatic, createGame, type BotDifficulty, type PlayerAction } from './game.ts'
 import type { TableSnapshot, TableStore } from './services.ts'
 
 const STORAGE_KEY = 'dsh-all-in/table-v3'
 
-function idleSnapshot(game: TableSnapshot['game'], open = false): TableSnapshot {
-  return { open, game, thinkingSeat: null, thinkingRemainingMs: 0, thinkingDurationMs: 0 }
+function idleSnapshot(game: TableSnapshot['game'], open = false, difficulty: BotDifficulty = 'standard'): TableSnapshot {
+  return { open, difficulty, game, thinkingSeat: null, thinkingRemainingMs: 0, thinkingDurationMs: 0 }
+}
+
+function isDifficulty(value: unknown): value is BotDifficulty {
+  return value === 'casual' || value === 'standard' || value === 'expert'
 }
 
 function load(): TableSnapshot {
@@ -19,7 +23,7 @@ function load(): TableSnapshot {
       || !Array.isArray(parsed.game.pendingActors)
       || !Array.isArray(parsed.game.actedSinceFullRaise)
     ) throw new Error('invalid saved table')
-    return idleSnapshot(parsed.game)
+    return idleSnapshot(parsed.game, false, isDifficulty(parsed.difficulty) ? parsed.difficulty : 'standard')
   } catch {
     return idleSnapshot(createGame())
   }
@@ -34,7 +38,7 @@ export function createTableStore(): TableStore {
     snapshot = next
     if (persist && typeof window !== 'undefined') {
       try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ open: false, game: snapshot.game }))
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ open: false, difficulty: snapshot.difficulty, game: snapshot.game }))
       } catch {
         // Storage can be disabled or full; gameplay remains in memory.
       }
@@ -82,7 +86,7 @@ export function createTableStore(): TableStore {
       automationTimer = undefined
       publish({
         ...snapshot,
-        game: advanceAutomatic(snapshot.game),
+        game: advanceAutomatic(snapshot.game, Math.random, snapshot.difficulty),
         thinkingSeat: null,
         thinkingRemainingMs: 0,
         thinkingDurationMs: 0,
@@ -104,7 +108,8 @@ export function createTableStore(): TableStore {
       publish({ ...snapshot, game: act(snapshot.game, action, raiseTo), thinkingSeat: null, thinkingRemainingMs: 0, thinkingDurationMs: 0 })
       scheduleAutomation()
     },
-    nextHand: () => { stopAutomation(); publish(idleSnapshot(createGame(Math.random, snapshot.game), snapshot.open)); scheduleAutomation() },
-    reset: () => { stopAutomation(); publish(idleSnapshot(createGame(), true)); scheduleAutomation() },
+    nextHand: () => { stopAutomation(); publish(idleSnapshot(createGame(Math.random, snapshot.game), snapshot.open, snapshot.difficulty)); scheduleAutomation() },
+    reset: () => { stopAutomation(); publish(idleSnapshot(createGame(), true, snapshot.difficulty)); scheduleAutomation() },
+    setDifficulty: (difficulty: BotDifficulty) => { publish({ ...snapshot, difficulty }) },
   }
 }

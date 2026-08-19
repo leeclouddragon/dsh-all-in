@@ -26,6 +26,7 @@ function apply(ctx: ClientCtx): void {
     act: store.act,
     nextHand: store.nextHand,
     resetTable: store.reset,
+    setDifficulty: store.setDifficulty,
   })
 
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({

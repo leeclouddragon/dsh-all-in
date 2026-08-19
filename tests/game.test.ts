@@ -84,6 +84,16 @@ test('one automatic step performs exactly one seat action', () => {
   assert.equal(totalTokens(next), STARTING_STACK * 6)
 })
 
+test('all opponent difficulty levels produce a legal automatic decision', () => {
+  for (const [offset, difficulty] of (['casual', 'standard', 'expert'] as const).entries()) {
+    const random = seeded(300 + offset)
+    const game = createGame(random)
+    const next = advanceAutomatic(game, random, difficulty)
+    assert.notStrictEqual(next, game)
+    assert.equal(totalTokens(next), STARTING_STACK * 6)
+  }
+})
+
 test('a full raise reopens action for players who already acted', () => {
   const random = seeded(33)
   const beforeRaise = advanceUntilUser(createGame(random), random)
@@ -195,10 +205,11 @@ test('betting round closes only after every pending response and starts postflop
 })
 
 test('fold removes only the hero and bots continue seat by seat', () => {
-  const random = seeded(99)
+  const random = seeded(93)
   const initial = createGame(random)
   const heroBefore = initial.seats[0]?.stack ?? 0
   const userTurn = advanceUntilUser(initial, random)
+  assert.ok(userTurn.seats.filter(seat => !seat.folded).length >= 3)
   const folded = act(userTurn, 'fold')
   assert.equal(folded.seats[0]?.folded, true)
   assert.notEqual(folded.street, 'hand-over')
