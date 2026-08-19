@@ -197,8 +197,63 @@ test('fold removes only the hero and bots continue seat by seat', () => {
   const oneBotLater = advanceAutomatic(folded, random)
   assert.notStrictEqual(oneBotLater, folded)
   const finished = playToEnd(oneBotLater, random)
-  assert.equal(finished.board.length, 5)
+  assert.equal(finished.street, 'hand-over')
+  assert.ok(finished.winners.length >= 1)
   assert.equal(finished.seats.reduce((sum, seat) => sum + seat.stack, 0), STARTING_STACK * 6)
+})
+
+test('deep-stacked bots stop re-raising after a three-bet instead of forcing a pre-flop shove chain', () => {
+  const base = createGame(seeded(101))
+  const actor = 2
+  const currentBet = BIG_BLIND * 4
+  const state: GameState = {
+    ...base,
+    actingSeat: actor,
+    currentBet,
+    lastRaiseSize: BIG_BLIND * 2,
+    pendingActors: [actor],
+    actedSinceFullRaise: [],
+    logs: ['Hand #1', 'Glitch raises to 100K', 'Ghost raises to 200K'],
+    seats: base.seats.map((seat, index) => {
+      if (index === actor) return {
+        ...seat,
+        hole: [{ rank: 14, suit: 'spades' }, { rank: 14, suit: 'hearts' }],
+        streetBet: 0,
+        committed: 0,
+        stack: STARTING_STACK,
+      }
+      if (index === 4) return { ...seat, streetBet: BIG_BLIND * 2, committed: BIG_BLIND * 2, stack: STARTING_STACK - BIG_BLIND * 2 }
+      if (index === 5) return { ...seat, streetBet: currentBet, committed: currentBet, stack: STARTING_STACK - currentBet }
+      return seat
+    }),
+  }
+  const next = advanceAutomatic(state, () => 0)
+  assert.equal(next.currentBet, currentBet)
+  assert.equal(next.seats[actor]?.streetBet, currentBet)
+  assert.equal(next.seats[actor]?.allIn, false)
+  assert.ok((next.seats[actor]?.stack ?? 0) > 0)
+})
+
+test('a checked-to post-flop bot can put a visible wager on the table', () => {
+  const base = createGame(seeded(102))
+  const actor = 2
+  const state: GameState = {
+    ...base,
+    street: 'flop',
+    board: base.deck.slice(0, 3),
+    deck: base.deck.slice(3),
+    actingSeat: actor,
+    currentBet: 0,
+    lastRaiseSize: BIG_BLIND,
+    pendingActors: [actor],
+    actedSinceFullRaise: [],
+    logs: ['Hand #1', 'Flop dealt'],
+    seats: base.seats.map(seat => ({ ...seat, streetBet: 0 })),
+  }
+  const next = advanceAutomatic(state, () => 0)
+  assert.ok(next.currentBet >= BIG_BLIND)
+  assert.equal(next.seats[actor]?.streetBet, next.currentBet)
+  assert.ok((next.seats[actor]?.stack ?? 0) > 0)
 })
 
 test('all-in runout and side-pot settlement conserve the Token pool', () => {

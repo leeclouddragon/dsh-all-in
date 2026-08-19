@@ -369,7 +369,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
     potCollectionTimerRef.current = window.setTimeout(() => {
       setPotCollection(current => current?.id === collection.id ? undefined : current)
       potCollectionTimerRef.current = undefined
-    }, 1_050)
+    }, 1_450)
   }, [game])
 
   React.useEffect(() => () => {
@@ -466,7 +466,8 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
                 style={{ animationDelay: `${index * 45}ms` }}
                 aria-hidden
               >
-                <span className="ai-chip-stack"><i /><i /><i /></span>
+                <PotChips amount={bet.amount} bigBlind={game.bigBlind} minimumLevel={3} />
+                <span className="ai-pot-collect-value">{formatTokenAmount(bet.amount)}</span>
               </span>
             ))}
             <div className="ai-pot" data-collecting={potCollection === undefined ? undefined : 'true'}>
