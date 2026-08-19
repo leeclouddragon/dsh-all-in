@@ -8,7 +8,7 @@ function idleSnapshot(game: TableSnapshot['game'], open = false, difficulty: Bot
 }
 
 function isDifficulty(value: unknown): value is BotDifficulty {
-  return value === 'casual' || value === 'standard' || value === 'expert'
+  return value === 'casual' || value === 'standard' || value === 'expert' || value === 'gto'
 }
 
 function load(): TableSnapshot {

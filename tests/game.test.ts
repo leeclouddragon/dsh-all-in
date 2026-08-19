@@ -85,7 +85,7 @@ test('one automatic step performs exactly one seat action', () => {
 })
 
 test('all opponent difficulty levels produce a legal automatic decision', () => {
-  for (const [offset, difficulty] of (['casual', 'standard', 'expert'] as const).entries()) {
+  for (const [offset, difficulty] of (['casual', 'standard', 'expert', 'gto'] as const).entries()) {
     const random = seeded(300 + offset)
     const game = createGame(random)
     const next = advanceAutomatic(game, random, difficulty)

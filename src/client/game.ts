@@ -2,7 +2,7 @@ import { compareValues, createDeck, evaluateBest, shuffle, type Card, type HandV
 
 export type Street = 'preflop' | 'flop' | 'turn' | 'river' | 'hand-over'
 export type PlayerAction = 'fold' | 'check' | 'call' | 'raise' | 'all-in'
-export type BotDifficulty = 'casual' | 'standard' | 'expert'
+export type BotDifficulty = 'casual' | 'standard' | 'expert' | 'gto'
 
 export interface Seat {
   readonly id: string
@@ -395,6 +395,7 @@ const BOT_DIFFICULTIES = {
     positionWeight: 0.3,
     bluffWeight: 1.35,
     raiseThreshold: 0.035,
+    solverStrategy: false,
   },
   standard: {
     samples: [56, 72, 84],
@@ -403,6 +404,7 @@ const BOT_DIFFICULTIES = {
     positionWeight: 1,
     bluffWeight: 1,
     raiseThreshold: 0,
+    solverStrategy: false,
   },
   expert: {
     samples: [144, 192, 256],
@@ -411,6 +413,16 @@ const BOT_DIFFICULTIES = {
     positionWeight: 1.15,
     bluffWeight: 0.9,
     raiseThreshold: -0.018,
+    solverStrategy: false,
+  },
+  gto: {
+    samples: [384, 512, 768],
+    equityNoise: 0,
+    foldSlack: 0,
+    positionWeight: 1.2,
+    bluffWeight: 1,
+    raiseThreshold: -0.028,
+    solverStrategy: true,
   },
 } as const
 
@@ -435,8 +447,10 @@ function botPositionEdge(state: GameState, index: number): number {
   return distance / Math.max(1, state.seats.length - 1) * 0.035
 }
 
-function botRaiseTarget(state: GameState, legal: LegalActions, equity: number): number {
-  const fraction = equity >= 0.72 ? 0.9 : equity >= 0.55 ? 0.7 : 0.5
+function botRaiseTarget(state: GameState, legal: LegalActions, equity: number, solverStrategy: boolean): number {
+  const fraction = solverStrategy
+    ? state.board.length === 0 ? 0.5 : equity >= 0.74 ? 0.75 : 0.33
+    : equity >= 0.72 ? 0.9 : equity >= 0.55 ? 0.7 : 0.5
   const increment = Math.max(state.lastRaiseSize, Math.round(potOf(state) * fraction / state.bigBlind) * state.bigBlind)
   return Math.max(legal.minRaiseTo, Math.min(legal.maxRaiseTo, state.currentBet + increment))
 }
@@ -459,17 +473,29 @@ function chooseBotDecision(state: GameState, index: number, random: () => number
   const canEscalate = raises < 2
   const stackToPot = seat.stack / Math.max(state.bigBlind, potOf(state))
   const canShove = legal.canAllIn && (seat.stack <= state.bigBlind * 12 || stackToPot <= 1.15)
-  const raise = (): BotDecision => ({ action: 'raise', raiseTo: botRaiseTarget(state, legal, equity) })
+  const raise = (): BotDecision => ({ action: 'raise', raiseTo: botRaiseTarget(state, legal, equity, level.solverStrategy) })
+  const balancedBluffFrequency = clamp(
+    (legal.toCall || potOf(state) * 0.5) / Math.max(1, potOf(state) + 2 * (legal.toCall || potOf(state) * 0.5)),
+    0.035,
+    0.18,
+  )
 
   if (legal.canCheck) {
     if (canShove && adjustedEquity > Math.max(0.62, fairShare + 0.24) && random() < 0.45 + Math.max(0, profile.aggression)) {
       return { action: 'all-in' }
     }
-    const openBetChance = clamp(0.06 + Math.max(0, valueEdge) * 1.15 + Math.max(0, profile.aggression) * 0.75 + profile.bluff * level.bluffWeight + botPositionEdge(state, index) * level.positionWeight, 0.04, 0.78)
+    const openBetChance = level.solverStrategy
+      ? valueEdge >= 0
+        ? clamp(0.16 + valueEdge * 1.4 + botPositionEdge(state, index) * level.positionWeight, 0.12, 0.82)
+        : balancedBluffFrequency * (0.72 + profile.bluff * 2)
+      : clamp(0.06 + Math.max(0, valueEdge) * 1.15 + Math.max(0, profile.aggression) * 0.75 + profile.bluff * level.bluffWeight + botPositionEdge(state, index) * level.positionWeight, 0.04, 0.78)
     if (legal.canRaise && canEscalate && random() < openBetChance) return raise()
     return { action: 'check' }
   }
-  const bluffRaise = legal.canRaise && canEscalate && adjustedEquity < potOdds && random() < profile.bluff * level.bluffWeight * clamp(1 - potOdds, 0.15, 0.8)
+  const bluffFrequency = level.solverStrategy
+    ? balancedBluffFrequency * clamp(0.65 + profile.bluff * 2, 0.65, 0.95)
+    : profile.bluff * level.bluffWeight * clamp(1 - potOdds, 0.15, 0.8)
+  const bluffRaise = legal.canRaise && canEscalate && adjustedEquity < potOdds && random() < bluffFrequency
   if (adjustedEquity < Math.max(0.05, potOdds - level.foldSlack) && !bluffRaise) return { action: 'fold' }
   if (bluffRaise) return raise()
   if (canShove && adjustedEquity > Math.max(0.58, potOdds + 0.18) && random() < 0.38 + Math.max(0, profile.aggression)) {

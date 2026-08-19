@@ -14,7 +14,7 @@ Play a fast, local-only six-max Texas Hold'em hand while DeepSeek Harness is thi
 
 - Six seats: one human and five local bots
 - Monte Carlo bot equity with pot-odds, opponent-count, position, stack-to-pot, and personality-aware decisions
-- Persistent Casual, Competitive, and Shark-table opponent levels, adjustable from the table header
+- Persistent Casual, Competitive, Shark-table, and experimental solver-style GTO opponent levels, adjustable from the table header
 - Pre-flop, flop, turn, river, showdown
 - Fold, check, call, pot-sized raise, and all-in
 - Custom raise-to sizing with Min, 1/2-pot, 3/4-pot, Pot, Max, slider, and direct amount entry

@@ -53,7 +53,7 @@ type DealStyle = React.CSSProperties & { '--ai-deal-step'?: number }
 type PositionBadge = 'D' | 'SB' | 'BB'
 const HOLE_DEAL_INTERVAL_MS = 170
 const HOLE_DEAL_SETTLE_MS = 420
-const DIFFICULTY_OPTIONS: readonly BotDifficulty[] = ['casual', 'standard', 'expert']
+const DIFFICULTY_OPTIONS: readonly BotDifficulty[] = ['casual', 'standard', 'expert', 'gto']
 const SEAT_CHARACTERS = [
   { thought: 'Your move' },
   { thought: 'Smells weakness' },
@@ -477,7 +477,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               aria-pressed={snapshot.difficulty === difficulty}
               onClick={() => { props.setDifficulty(difficulty) }}
             >
-              <span className="ai-difficulty-level" aria-hidden>{difficulty === 'casual' ? 'I' : difficulty === 'standard' ? 'II' : 'III'}</span>
+              <span className="ai-difficulty-level" aria-hidden>{difficulty === 'casual' ? 'I' : difficulty === 'standard' ? 'II' : difficulty === 'expert' ? 'III' : 'GTO'}</span>
               <span><strong>{props.t(`difficulty.${difficulty}`)}</strong><small>{props.t(`difficulty.${difficulty}.description`)}</small></span>
               <i aria-hidden />
             </button>)}
