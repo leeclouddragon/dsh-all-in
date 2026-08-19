@@ -412,6 +412,26 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
   content: ''; position: absolute; right: -3px; top: -3px; width: 7px; height: 7px;
   border: 2px solid var(--dsw-alias-bg-base); border-radius: 50%; background: var(--ai-blue);
 }
+.ai-table-talk {
+  position: absolute; z-index: 12; width: max-content; max-width: 154px; box-sizing: border-box;
+  padding: 6px 9px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 11px;
+  color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 7px 20px rgba(38,49,72,.12); white-space: normal; text-align: left;
+  font: 500 9px/12px var(--dsw-font-family); pointer-events: none;
+  animation: ai-talk-in 180ms cubic-bezier(.16,.78,.22,1) both;
+}
+.ai-table-talk::after {
+  content: ''; position: absolute; width: 7px; height: 7px; transform: rotate(45deg);
+  border: solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1);
+}
+.ai-seat[data-pos="0"] .ai-table-talk, .ai-seat[data-pos="3"] .ai-table-talk { left: calc(100% + 7px); top: 63px; }
+.ai-seat[data-pos="1"] .ai-table-talk, .ai-seat[data-pos="2"] .ai-table-talk { left: calc(100% + 7px); top: 58px; }
+.ai-seat[data-pos="4"] .ai-table-talk, .ai-seat[data-pos="5"] .ai-table-talk { right: calc(100% + 7px); top: 58px; }
+.ai-seat[data-pos="0"] .ai-table-talk::after, .ai-seat[data-pos="1"] .ai-table-talk::after, .ai-seat[data-pos="2"] .ai-table-talk::after, .ai-seat[data-pos="3"] .ai-table-talk::after {
+  left: -5px; top: 10px; border-width: 0 0 1px 1px;
+}
+.ai-seat[data-pos="4"] .ai-table-talk::after, .ai-seat[data-pos="5"] .ai-table-talk::after { right: -5px; top: 10px; border-width: 1px 1px 0 0; }
+@keyframes ai-talk-in { from { opacity: 0; transform: translateY(4px) scale(.96); } }
 .ai-avatar {
   width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
   background: var(--dsw-alias-bg-module-platform); color: var(--dsw-alias-label-secondary);
@@ -573,6 +593,7 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
   .ai-mucked-hand .ai-card { width: 32px; }
   .ai-mucked-hand { transform: translate(-50%,-50%) scale(.88); }
   .ai-thinking-chip { min-width: 108px; max-width: 138px; }
+  .ai-table-talk { max-width: 118px; padding: 5px 7px; font-size: 8px; line-height: 11px; }
   .ai-bottombar { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; transform: none; }
   .ai-log, .ai-hand-meta { display: none; }
   .ai-action-stack { width: 100%; }
@@ -583,7 +604,7 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-status-dot, .ai-seat, .ai-seat[data-acting="true"] .ai-player, .ai-card, .ai-bet, .ai-deck { animation: none; transition: none; }
+  .ai-status-dot, .ai-seat, .ai-seat[data-acting="true"] .ai-player, .ai-card, .ai-bet, .ai-deck, .ai-table-talk { animation: none; transition: none; }
   .ai-chip-flight, .ai-pot-collect { display: none; }
   .ai-pot[data-collecting="true"] .ai-pot-chips { animation: none; }
   .ai-bankroll { animation: none; }

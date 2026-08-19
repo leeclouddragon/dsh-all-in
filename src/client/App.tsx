@@ -1,6 +1,6 @@
 import React from 'react'
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
-import { blindSeatIndices, formatTokenAmount, legalActions, potOf, STARTING_STACK, type BotDifficulty, type LegalActions, type PlayerAction, type Seat, type Street } from './game.ts'
+import { blindSeatIndices, formatTokenAmount, legalActions, potOf, STARTING_STACK, type BotDifficulty, type GameState, type LegalActions, type PlayerAction, type Seat, type Street } from './game.ts'
 import { cardText, isRed, type Card } from './poker.ts'
 import type { StandardProps, TableFace } from './services.ts'
 
@@ -25,6 +25,14 @@ interface PotCollection {
   readonly id: number
   readonly bets: ReadonlyArray<{ readonly seat: number; readonly amount: number }>
 }
+
+interface TableTalk {
+  readonly id: number
+  readonly seat: number
+  readonly text: string
+}
+
+type TalkAction = 'fold' | 'check' | 'call' | 'raise' | 'win'
 
 function currentRunning(props: StandardProps): boolean {
   return props.useSessions(state => state.current === undefined ? false : state.byId[state.current]?.running === true)
@@ -63,6 +71,56 @@ const SEAT_CHARACTERS = [
   { thought: 'Setting a trap' },
 ] as const
 
+const TALK_KEYS: Readonly<Record<number, Readonly<Record<TalkAction, readonly string[]>>>> = {
+  1: {
+    fold: ['talk.shark.fold'], check: ['talk.shark.check'], call: ['talk.shark.call.0', 'talk.shark.call.1'],
+    raise: ['talk.shark.raise.0', 'talk.shark.raise.1'], win: ['talk.shark.win'],
+  },
+  2: {
+    fold: ['talk.oracle.fold'], check: ['talk.oracle.check'], call: ['talk.oracle.call.0', 'talk.oracle.call.1'],
+    raise: ['talk.oracle.raise.0', 'talk.oracle.raise.1'], win: ['talk.oracle.win'],
+  },
+  3: {
+    fold: ['talk.mochi.fold'], check: ['talk.mochi.check'], call: ['talk.mochi.call.0', 'talk.mochi.call.1'],
+    raise: ['talk.mochi.raise.0', 'talk.mochi.raise.1'], win: ['talk.mochi.win'],
+  },
+  4: {
+    fold: ['talk.glitch.fold'], check: ['talk.glitch.check'], call: ['talk.glitch.call.0', 'talk.glitch.call.1'],
+    raise: ['talk.glitch.raise.0', 'talk.glitch.raise.1'], win: ['talk.glitch.win'],
+  },
+  5: {
+    fold: ['talk.ghost.fold'], check: ['talk.ghost.check'], call: ['talk.ghost.call.0', 'talk.ghost.call.1'],
+    raise: ['talk.ghost.raise.0', 'talk.ghost.raise.1'], win: ['talk.ghost.win'],
+  },
+}
+
+function talkActionFromLog(log: string): TalkAction | undefined {
+  if (log.includes(' folds')) return 'fold'
+  if (log.includes(' checks')) return 'check'
+  if (log.includes(' calls')) return 'call'
+  if (log.includes(' raises to ') || log.includes(' moves all-in')) return 'raise'
+  return undefined
+}
+
+function nextTableTalk(previous: GameState, game: GameState, t: T): Omit<TableTalk, 'id'> | undefined {
+  if (previous.street !== 'hand-over' && game.street === 'hand-over') {
+    const winner = game.seats.findIndex((seat, index) => seat.bot && game.winners.includes(seat.id) && TALK_KEYS[index] !== undefined)
+    if (winner >= 0) return { seat: winner, text: t((TALK_KEYS[winner] as Readonly<Record<TalkAction, readonly string[]>>).win[0] as string) }
+  }
+  const actor = previous.actingSeat
+  if (actor === null || actor === previous.userSeat || !previous.seats[actor]?.bot) return undefined
+  const name = previous.seats[actor]?.name
+  const actionLog = [...game.logs].reverse().find(log => log.startsWith(`${name} `))
+  if (actionLog === undefined) return undefined
+  const action = talkActionFromLog(actionLog)
+  const keys = action === undefined ? undefined : TALK_KEYS[actor]?.[action]
+  if (action === undefined || keys === undefined || keys.length === 0) return undefined
+  const cadence = (game.handNumber * 17 + game.logs.length * 7 + actor * 11) % 4
+  if (action !== 'raise' && cadence > 0) return undefined
+  const key = keys[(game.handNumber + game.logs.length + actor) % keys.length] as string
+  return { seat: actor, text: t(key) }
+}
+
 function PlayingCard({ card, hidden = false, empty = false, dealStep }: { card?: Card | undefined; hidden?: boolean; empty?: boolean; dealStep?: number | undefined }): React.ReactElement {
   const style: DealStyle | undefined = dealStep === undefined ? undefined : { '--ai-deal-step': dealStep }
   if (empty) return <span className="ai-card ai-card-empty"><FishLogo className="ai-card-mark" size={22} /></span>
@@ -75,7 +133,7 @@ function PlayingCard({ card, hidden = false, empty = false, dealStep }: { card?:
   )
 }
 
-function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, dealOrder, dealSeatCount, dealing, dealtCards, bigBlind, effect }: {
+function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinkingDurationMs, thinkingLabel, dealOrder, dealSeatCount, dealing, dealtCards, bigBlind, effect, talk }: {
   seat: Seat
   position: number
   badges: readonly PositionBadge[]
@@ -90,6 +148,7 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
   dealtCards: number
   bigBlind: number
   effect?: SeatEffect | undefined
+  talk?: string | undefined
 }): React.ReactElement {
   const character = SEAT_CHARACTERS[position] ?? { thought: thinkingLabel }
   const thinkingProgress = thinkingDurationMs <= 0 ? 0 : Math.max(0, Math.min(1, thinkingMs / thinkingDurationMs))
@@ -121,6 +180,7 @@ function SeatView({ seat, position, badges, reveal, acting, thinkingMs, thinking
           <span className="ai-badges">{badges.map(badge => <span key={badge} className="ai-badge" data-role={badge}>{badge}</span>)}</span>
         ) : <span />}
       </div>
+      {talk !== undefined ? <div className="ai-table-talk" role="status" aria-live="polite">{talk}</div> : null}
       {thinkingMs > 0 ? (
         <div className="ai-thinking-chip">
           <span className="ai-thinking-copy">{seat.bot ? character.thought : thinkingLabel} · {Math.max(1, Math.ceil(thinkingMs / 1000))}s</span>
@@ -276,12 +336,16 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
   const previousGameRef = React.useRef(game)
   const previousBoardCountRef = React.useRef(game.board.length)
   const previousPotGameRef = React.useRef(game)
+  const previousTalkGameRef = React.useRef(game)
   const effectIdRef = React.useRef(0)
+  const talkIdRef = React.useRef(0)
+  const talkTimerRef = React.useRef<number | undefined>()
   const potCollectionIdRef = React.useRef(0)
   const potCollectionTimerRef = React.useRef<number | undefined>()
   const dealtHandRef = React.useRef<string | undefined>()
   const [seatEffect, setSeatEffect] = React.useState<SeatEffect | undefined>()
   const [potCollection, setPotCollection] = React.useState<PotCollection | undefined>()
+  const [tableTalk, setTableTalk] = React.useState<TableTalk | undefined>()
   const [dealing, setDealing] = React.useState(false)
   const [dealtCards, setDealtCards] = React.useState(0)
   const [boardDealing, setBoardDealing] = React.useState(false)
@@ -357,6 +421,32 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
     }, nextEffect.kind === 'fold' ? 820 : 920)
     return () => { window.clearTimeout(timer) }
   }, [game])
+
+  React.useEffect(() => {
+    const previous = previousTalkGameRef.current
+    previousTalkGameRef.current = game
+    if (previous === game || previous.handNumber !== game.handNumber) {
+      if (talkTimerRef.current !== undefined) window.clearTimeout(talkTimerRef.current)
+      talkTimerRef.current = undefined
+      setTableTalk(undefined)
+      return undefined
+    }
+    const talk = nextTableTalk(previous, game, props.t)
+    if (talk === undefined) return undefined
+    talkIdRef.current += 1
+    const next = { ...talk, id: talkIdRef.current }
+    if (talkTimerRef.current !== undefined) window.clearTimeout(talkTimerRef.current)
+    setTableTalk(next)
+    talkTimerRef.current = window.setTimeout(() => {
+      setTableTalk(current => current?.id === next.id ? undefined : current)
+      talkTimerRef.current = undefined
+    }, 3_200)
+    return undefined
+  }, [game, props.t])
+
+  React.useEffect(() => () => {
+    if (talkTimerRef.current !== undefined) window.clearTimeout(talkTimerRef.current)
+  }, [])
 
   React.useLayoutEffect(() => {
     const previous = previousPotGameRef.current
@@ -540,6 +630,7 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               dealtCards={dealtCards}
               bigBlind={game.bigBlind}
               effect={seatEffect?.seat === index ? seatEffect : undefined}
+              talk={tableTalk?.seat === index ? tableTalk.text : undefined}
             />)}
             {game.seats.map((seat, index) => seat.folded && seat.hole.length > 0 ? <MuckedHand
               key={`muck-${seat.id}`}
