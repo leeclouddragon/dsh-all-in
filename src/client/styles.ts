@@ -193,7 +193,7 @@ body[data-ds-dark-theme] .ai-table-logo { opacity: .52; }
 .ai-pot-collect {
   --ai-collect-x: 0px; --ai-collect-y: 0px;
   position: absolute; z-index: 9; left: 50%; top: calc(50% - var(--ai-pot-offset));
-  display: flex; width: max-content; height: 28px; align-items: flex-end;
+  display: flex; width: max-content; height: 28px; align-items: flex-end; gap: 4px;
   transform: translate(calc(-50% + var(--ai-collect-x)),calc(-50% + var(--ai-collect-y)));
   pointer-events: none; animation: ai-pot-collect 1.16s cubic-bezier(.2,.78,.2,1) both;
 }
@@ -205,7 +205,7 @@ body[data-ds-dark-theme] .ai-table-logo { opacity: .52; }
 .ai-pot-collect[data-pos="5"] { --ai-collect-x: 20cqw; --ai-collect-y: calc(var(--ai-seat-side-y) - 34px + var(--ai-pot-offset)); }
 .ai-pot-collect .ai-pot-chips { width: max-content; transform: scale(.9); transform-origin: right bottom; }
 .ai-pot-collect-value {
-  position: relative; z-index: 2; min-width: 28px; margin: 0 0 1px -8px; padding: 3px 6px; text-align: center;
+  position: relative; z-index: 2; min-width: 28px; margin: 0 0 1px; padding: 3px 6px; text-align: center;
   border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px;
   background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary);
   box-shadow: 0 3px 10px rgba(38,49,72,.1); font: 600 9px/1 var(--ds-font-family-code); white-space: nowrap;
@@ -417,7 +417,7 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
 .ai-chip-stack i:nth-child(3) { top: 0; }
 .ai-bet {
   position: absolute; z-index: 6; left: 50%; top: -10px; transform: translate(-50%,-50%);
-  display: flex; width: max-content; align-items: flex-end; gap: 0; pointer-events: none;
+  display: flex; width: max-content; align-items: flex-end; gap: 4px; pointer-events: none;
   color: var(--dsw-alias-label-secondary); font: 600 9px/1 var(--ds-font-family-code); white-space: nowrap;
 }
 .ai-bet .ai-pot-chips {
@@ -425,7 +425,7 @@ body[data-ds-dark-theme] .ai-player { box-shadow: 0 5px 16px rgba(0,0,0,.15); }
   transform: scale(.9); transform-origin: right bottom;
 }
 .ai-bet-value {
-  position: relative; z-index: 2; min-width: 28px; margin: 0 0 1px -8px; padding: 3px 6px; text-align: center;
+  position: relative; z-index: 2; min-width: 28px; margin: 0 0 1px; padding: 3px 6px; text-align: center;
   border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px;
   background: var(--dsw-alias-bg-layer-1); box-shadow: 0 3px 10px rgba(38,49,72,.1);
 }
