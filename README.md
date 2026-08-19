@@ -13,6 +13,7 @@ Play a fast, local-only six-max Texas Hold'em hand while DeepSeek Harness is thi
 ## What works
 
 - Six seats: one human and five local bots
+- Monte Carlo bot equity with pot-odds, opponent-count, position, stack-to-pot, and personality-aware decisions
 - Pre-flop, flop, turn, river, showdown
 - Fold, check, call, pot-sized raise, and all-in
 - Custom raise-to sizing with Min, 1/2-pot, 3/4-pot, Pot, Max, slider, and direct amount entry
@@ -65,7 +66,7 @@ The package has two halves:
 - `lib/index.js`: a no-op host plugin that activates the bundle
 - `lib/client.js`: a browser bundle registering `sidebar.footer.action` and `shell.overlay`
 
-The poker engine is independent of React and exported as `dsh-all-in/engine` for tests and future bot strategies.
+The poker engine is independent of React and exported as `dsh-all-in/engine`. Bot decisions estimate equity from only their own hole cards and the public board, so simulations never inspect an opponent's hidden cards or the real deck order.
 
 ## Why this is a separate repository
 

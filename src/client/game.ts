@@ -215,22 +215,61 @@ function finishStreet(state: GameState): GameState {
   return state
 }
 
-function preflopStrength(cards: readonly Card[]): number {
-  const first = cards[0]
-  const second = cards[1]
-  if (first === undefined || second === undefined) return 0
-  const high = Math.max(first.rank, second.rank)
-  const low = Math.min(first.rank, second.rank)
-  const pair = high === low ? 0.38 + high / 24 : 0
-  const suited = first.suit === second.suit ? 0.08 : 0
-  const connected = Math.max(0, 0.08 - Math.abs(high - low) * 0.015)
-  return Math.min(1, high / 20 + low / 45 + pair + suited + connected)
+function clamp(value: number, minimum = 0, maximum = 1): number {
+  return Math.max(minimum, Math.min(maximum, value))
 }
 
-function botStrength(state: GameState, seat: Seat): number {
-  if (state.board.length < 3) return preflopStrength(seat.hole)
-  const value = evaluateBest([...seat.hole, ...state.board])
-  return Math.min(1, value.category / 8 + (value.kickers[0] ?? 0) / 42)
+function cardKey(card: Card): string {
+  return `${card.rank}-${card.suit}`
+}
+
+/** Estimate showdown equity without reading any opponent hole cards or the real deck order. */
+export function estimateEquity(
+  hole: readonly Card[],
+  board: readonly Card[],
+  opponentCount: number,
+  random: () => number = Math.random,
+  samples = 64,
+): number {
+  if (hole.length !== 2) return 0
+  const known = new Set([...hole, ...board].map(cardKey))
+  const unseen = createDeck().filter(card => !known.has(cardKey(card)))
+  const boardNeeded = Math.max(0, 5 - board.length)
+  const opponents = Math.max(0, Math.min(opponentCount, Math.floor((unseen.length - boardNeeded) / 2)))
+  if (opponents === 0) return 1
+  const iterations = Math.max(1, Math.floor(samples))
+  const drawCount = boardNeeded + opponents * 2
+  let equity = 0
+
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    const pool = [...unseen]
+    for (let draw = 0; draw < drawCount; draw += 1) {
+      const swap = draw + Math.floor(random() * (pool.length - draw))
+      const card = pool[draw] as Card
+      pool[draw] = pool[swap] as Card
+      pool[swap] = card
+    }
+    const completedBoard = [...board, ...pool.slice(0, boardNeeded)]
+    const heroValue = evaluateBest([...hole, ...completedBoard])
+    let tiedOpponents = 0
+    let lost = false
+    for (let opponent = 0; opponent < opponents; opponent += 1) {
+      const offset = boardNeeded + opponent * 2
+      const opponentValue = evaluateBest([
+        pool[offset] as Card,
+        pool[offset + 1] as Card,
+        ...completedBoard,
+      ])
+      const comparison = compareValues(heroValue, opponentValue)
+      if (comparison < 0) {
+        lost = true
+        break
+      }
+      if (comparison === 0) tiedOpponents += 1
+    }
+    if (!lost) equity += 1 / (tiedOpponents + 1)
+  }
+  return equity / iterations
 }
 
 function legalActionsFor(state: GameState, index: number): LegalActions {
@@ -347,6 +386,11 @@ const BOT_PROFILES = [
   { aggression: -0.02, looseness: -0.03, bluff: 0.09 },
 ] as const
 
+interface BotDecision {
+  readonly action: PlayerAction
+  readonly raiseTo?: number
+}
+
 function raisesThisStreet(state: GameState): number {
   let count = 0
   for (let index = state.logs.length - 1; index >= 0; index -= 1) {
@@ -357,27 +401,53 @@ function raisesThisStreet(state: GameState): number {
   return count
 }
 
-function chooseBotAction(state: GameState, index: number, random: () => number): PlayerAction {
+function botPositionEdge(state: GameState, index: number): number {
+  const distance = (index - state.dealer + state.seats.length) % state.seats.length
+  if (distance === 0) return 0.045
+  return distance / Math.max(1, state.seats.length - 1) * 0.035
+}
+
+function botRaiseTarget(state: GameState, legal: LegalActions, equity: number): number {
+  const fraction = equity >= 0.72 ? 0.9 : equity >= 0.55 ? 0.7 : 0.5
+  const increment = Math.max(state.lastRaiseSize, Math.round(potOf(state) * fraction / state.bigBlind) * state.bigBlind)
+  return Math.max(legal.minRaiseTo, Math.min(legal.maxRaiseTo, state.currentBet + increment))
+}
+
+function chooseBotDecision(state: GameState, index: number, random: () => number): BotDecision {
   const seat = state.seats[index] as Seat
   const legal = legalActionsFor(state, index)
-  const strength = botStrength(state, seat)
+  const opponentCount = state.seats.filter((candidate, candidateIndex) => candidateIndex !== index && !candidate.folded).length
+  const samples = state.board.length === 0 ? 56 : state.board.length === 3 ? 72 : 84
+  const equity = estimateEquity(seat.hole, state.board, opponentCount, random, samples)
   const potOdds = legal.toCall / Math.max(1, potOf(state) + legal.toCall)
   const profile = BOT_PROFILES[index] ?? BOT_PROFILES[0]
-  const pressure = strength + profile.aggression
+  const adjustedEquity = clamp(equity + profile.looseness * 0.06 + botPositionEdge(state, index))
+  const fairShare = 1 / Math.max(1, opponentCount + 1)
+  const valueEdge = adjustedEquity - fairShare
+  const callEdge = adjustedEquity - potOdds
   const raises = raisesThisStreet(state)
   const canEscalate = raises < 2
-  const canShove = legal.canAllIn && seat.stack <= Math.max(state.bigBlind * 12, potOf(state) * 1.5)
-  const openBetChance = Math.min(0.62, 0.1 + strength * 0.32 + Math.max(0, profile.aggression) + profile.bluff)
+  const stackToPot = seat.stack / Math.max(state.bigBlind, potOf(state))
+  const canShove = legal.canAllIn && (seat.stack <= state.bigBlind * 12 || stackToPot <= 1.15)
+  const raise = (): BotDecision => ({ action: 'raise', raiseTo: botRaiseTarget(state, legal, equity) })
 
   if (legal.canCheck) {
-    if (canShove && pressure > 0.92 && random() < 0.12 + Math.max(0, profile.aggression)) return 'all-in'
-    if (legal.canRaise && canEscalate && random() < openBetChance) return 'raise'
-    return 'check'
+    if (canShove && adjustedEquity > Math.max(0.62, fairShare + 0.24) && random() < 0.45 + Math.max(0, profile.aggression)) {
+      return { action: 'all-in' }
+    }
+    const openBetChance = clamp(0.06 + Math.max(0, valueEdge) * 1.15 + Math.max(0, profile.aggression) * 0.75 + profile.bluff + botPositionEdge(state, index), 0.04, 0.78)
+    if (legal.canRaise && canEscalate && random() < openBetChance) return raise()
+    return { action: 'check' }
   }
-  if (strength + profile.looseness + random() * 0.34 < potOdds + 0.22) return 'fold'
-  if (canShove && pressure > 0.9 && random() < 0.2 + Math.max(0, profile.aggression)) return 'all-in'
-  if (legal.canRaise && canEscalate && (pressure + random() * 0.18 > 0.9 || random() < profile.bluff * Math.max(0.25, 1 - potOdds))) return 'raise'
-  return 'call'
+  const bluffRaise = legal.canRaise && canEscalate && adjustedEquity < potOdds && random() < profile.bluff * clamp(1 - potOdds, 0.15, 0.8)
+  if (adjustedEquity < Math.max(0.05, potOdds - 0.025) && !bluffRaise) return { action: 'fold' }
+  if (bluffRaise) return raise()
+  if (canShove && adjustedEquity > Math.max(0.58, potOdds + 0.18) && random() < 0.38 + Math.max(0, profile.aggression)) {
+    return { action: 'all-in' }
+  }
+  const raiseChance = clamp(0.18 + Math.max(0, callEdge) * 0.9 + Math.max(0, profile.aggression), 0.12, 0.72)
+  if (legal.canRaise && canEscalate && callEdge > 0.13 + raises * 0.035 && random() < raiseChance) return raise()
+  return { action: 'call' }
 }
 
 export function potOf(state: GameState): number {
@@ -398,7 +468,8 @@ export function advanceAutomatic(state: GameState, random: () => number = Math.r
   if (state.actingSeat === null) return withPot(finishStreet(state))
   const actor = state.seats[state.actingSeat]
   if (actor === undefined || !actor.bot) return state
-  return actAt(state, state.actingSeat, chooseBotAction(state, state.actingSeat, random))
+  const decision = chooseBotDecision(state, state.actingSeat, random)
+  return actAt(state, state.actingSeat, decision.action, decision.raiseTo)
 }
 
 export function createGame(random: () => number = Math.random, previous?: GameState): GameState {

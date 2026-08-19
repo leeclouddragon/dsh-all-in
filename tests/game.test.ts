@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { act, advanceAutomatic, BIG_BLIND, blindSeatIndices, createGame, formatTokenAmount, legalActions, potOf, SMALL_BLIND, STARTING_STACK, type GameState } from '../src/client/game.ts'
+import { act, advanceAutomatic, BIG_BLIND, blindSeatIndices, createGame, estimateEquity, formatTokenAmount, legalActions, potOf, SMALL_BLIND, STARTING_STACK, type GameState } from '../src/client/game.ts'
 import { createDeck, shuffle } from '../src/client/poker.ts'
 
 function seeded(seed = 1): () => number {
@@ -42,6 +42,17 @@ function playToEnd(state: GameState, random: () => number, limit = 500): GameSta
 test('formats large Token amounts for the table HUD', () => {
   assert.equal(formatTokenAmount(25_000), '25K')
   assert.equal(formatTokenAmount(4_950_000), '4.95M')
+})
+
+test('Monte Carlo equity ranks premium hands and tightens in multiway pots', () => {
+  const aces = [{ rank: 14, suit: 'spades' }, { rank: 14, suit: 'hearts' }] as const
+  const sevenTwo = [{ rank: 7, suit: 'clubs' }, { rank: 2, suit: 'diamonds' }] as const
+  const headsUpAces = estimateEquity(aces, [], 1, seeded(201), 800)
+  const multiwayAces = estimateEquity(aces, [], 5, seeded(202), 800)
+  const headsUpSevenTwo = estimateEquity(sevenTwo, [], 1, seeded(203), 800)
+  assert.ok(headsUpAces > headsUpSevenTwo + 0.3)
+  assert.ok(headsUpAces > multiwayAces)
+  assert.ok(headsUpAces > 0.75)
 })
 
 test('deals six unique pairs, posts blinds, and starts UTG', () => {
@@ -227,7 +238,7 @@ test('deep-stacked bots stop re-raising after a three-bet instead of forcing a p
       return seat
     }),
   }
-  const next = advanceAutomatic(state, () => 0)
+  const next = advanceAutomatic(state, seeded(204))
   assert.equal(next.currentBet, currentBet)
   assert.equal(next.seats[actor]?.streetBet, currentBet)
   assert.equal(next.seats[actor]?.allIn, false)
