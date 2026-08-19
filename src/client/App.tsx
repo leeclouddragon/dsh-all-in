@@ -568,9 +568,13 @@ export function PokerOverlay(props: OverlayProps): React.ReactElement | null {
               onClick={() => { props.setDifficulty(difficulty) }}
             >
               <span className="ai-difficulty-level" aria-hidden>{difficulty === 'casual' ? 'I' : difficulty === 'standard' ? 'II' : difficulty === 'expert' ? 'III' : 'GTO'}</span>
-              <span><strong>{props.t(`difficulty.${difficulty}`)}</strong><small>{props.t(`difficulty.${difficulty}.description`)}</small></span>
+              <strong>{props.t(`difficulty.${difficulty}`)}</strong>
               <i aria-hidden />
             </button>)}
+          </div>
+          <div className="ai-difficulty-summary">
+            <strong>{props.t(`difficulty.${snapshot.difficulty}`)}</strong>
+            <span>{props.t(`difficulty.${snapshot.difficulty}.description`)}</span>
           </div>
           <p>{props.t('difficultyAppliesNow')}</p>
         </div> : null}
