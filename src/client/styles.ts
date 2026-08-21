@@ -62,11 +62,16 @@ body[data-ds-dark-theme] .ai-overlay {
 .ai-top-actions { justify-self: end; display: flex; align-items: center; gap: 3px; }
 .ai-hand-number { color: var(--dsw-alias-label-tertiary); margin-right: 4px; font-size: 10px; white-space: nowrap; }
 .ai-ghost {
-  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%;
+  position: relative; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; outline: none;
   color: var(--dsw-alias-label-secondary); background: transparent; cursor: pointer; font: 500 15px/1 var(--dsw-font-family);
 }
 .ai-ghost:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); }
-.ai-settings-trigger[data-active="true"] { color: var(--ai-blue); background: var(--ai-blue-soft); }
+.ai-ghost:focus-visible { box-shadow: 0 0 0 2px var(--dsw-alias-bg-layer-1), 0 0 0 3px var(--ai-blue); }
+.ai-settings-trigger[data-active="true"] { color: var(--ai-blue); background: transparent; }
+.ai-settings-trigger[data-active="true"]::after {
+  content: ''; position: absolute; left: 50%; bottom: 1px; width: 10px; height: 2px; border-radius: 2px;
+  background: var(--ai-blue); transform: translateX(-50%);
+}
 .ai-settings-icon { width: 15px; height: 14px; display: grid; align-content: space-around; }
 .ai-settings-icon i { position: relative; display: block; width: 15px; height: 1px; background: currentColor; }
 .ai-settings-icon i::after {
